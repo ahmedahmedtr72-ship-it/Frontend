@@ -1,0 +1,36 @@
+<aside class="sidebar" [class.collapsed]="isCollapsed">
+  <button class="sidebar-toggle" (click)="toggleSidebar()" [class.rotated]="isCollapsed">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 2L8 6L4 10"/>
+    </svg>
+  </button>
+
+  <div class="sidebar-header">
+    <div class="logo"> </div>
+    <div class="logo-text"> <img  src="assets/logo.jpg" width="120px"/> </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section" *ngFor="let section of navSections">
+      <div class="nav-section-title">{{ section.title }}</div>
+      <a 
+        *ngFor="let item of section.items"
+        [routerLink]="item.route" 
+        routerLinkActive="active"
+        class="nav-item"
+      >
+        <span class="nav-icon" [innerHTML]="getIconSvg(item.icon)"></span>
+        <span class="nav-text">{{ item.label }}</span>
+        <span class="nav-badge" *ngIf="item.badge">{{ item.badge }}</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="user-profile">
+    <div class="user-avatar">{{ user.initials }}</div>
+    <div class="user-info">
+      <div class="user-name">{{ user.name }}</div>
+      <div class="user-role">{{ user.role }}</div>
+    </div>
+  </div>
+</aside>

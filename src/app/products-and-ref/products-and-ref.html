@@ -1,0 +1,191 @@
+<div class="container">
+  <!-- LEFT - SHIPMENTS LIST -->
+  <div class="left">
+    <h3>Shipments</h3>
+
+    <div class="shipment-form">
+      <input
+        type="text"
+        placeholder="Sendungsnr*"
+        [(ngModel)]="newSendungsnr"
+      />
+      <input
+        type="number"
+        placeholder="Weight (kg)*"
+        [(ngModel)]="newWeightKg"
+        step="0.01"
+        min="0"
+      />
+      <button (click)="addShipment()">Add Shipment</button>
+    </div>
+
+    <ul class="shipments-list">
+      <li
+        *ngFor="let shipment of shipments"
+        (click)="selectShipment(shipment)"
+        [class.active]="shipment === selectedShipment"
+      >
+        <div class="shipment-header">
+          <div class="shipment-title">{{ shipment.sendungsnr }}</div>
+          <button class="delete-btn" (click)="deleteShipment(shipment, $event)">×</button>
+        </div>
+        <div class="shipment-details">
+          <span>{{ shipment.weightKg }} kg</span>
+          <span>{{ shipment.products.length }} items</span>
+          <span class="status" [class.calculated]="shipment.isCalculated">
+            {{ shipment.isCalculated ? '✓ Calculated' : '○ Not calculated' }}
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- MIDDLE - PRODUCT SEARCH/ADD -->
+  <div class="middle">
+    <h3>Add Products to Shipment</h3>
+
+    <div *ngIf="!selectedShipment" class="placeholder">
+      Select a shipment to add products
+    </div>
+
+    <div *ngIf="selectedShipment">
+      <!-- Search existing products -->
+      <input
+        type="text"
+        placeholder="Search existing products..."
+        [(ngModel)]="productSearchTerm"
+        (ngModelChange)="searchProducts()"
+        class="search-input"
+      />
+
+      <button (click)="toggleProductForm()" class="create-btn">
+        {{ showProductForm ? 'Cancel' : '+ Add Product Manually' }}
+      </button>
+
+      <!-- Manual Product Form -->
+      <div class="product-form" *ngIf="showProductForm">
+        <h4>Product Details</h4>
+        <input 
+          placeholder="Product Name*" 
+          [(ngModel)]="newProductName" 
+        />
+        <input 
+          type="number" 
+          placeholder="Quantity*" 
+          [(ngModel)]="newProductQuantity"
+          min="1"
+        />
+        <input 
+          type="number" 
+          placeholder="Volume (ml)*" 
+          [(ngModel)]="newProductVolumeMl"
+          min="1"
+        />
+        <button (click)="addProductToShipment()" class="add-btn">
+          Add to Shipment
+        </button>
+      </div>
+
+      <!-- Search Results -->
+      <div class="products-list" *ngIf="!showProductForm && productSearchTerm">
+        <div
+          *ngFor="let product of filteredProducts"
+          class="product-item"
+          (click)="selectProduct(product)"
+        >
+          <div class="product-name">{{ product.name }}</div>
+          <div class="product-meta">
+            <span *ngIf="product.volumeMl">{{ product.volumeMl }}ml</span>
+            <span *ngIf="product.hsCode">{{ product.hsCode }}</span>
+          </div>
+        </div>
+        
+        <div *ngIf="filteredProducts.length === 0" class="no-results">
+          No products found
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT - SHIPMENT DETAILS -->
+  <div class="right" *ngIf="selectedShipment">
+    <div class="shipment-header-section">
+      <h3>Shipment: {{ selectedShipment.sendungsnr }}</h3>
+      <div class="shipment-info">
+        <span>Weight: {{ selectedShipment.weightKg }} kg</span>
+        <span>Products: {{ selectedShipment.products.length }}</span>
+        <span>Total Items: {{ getTotalProducts(selectedShipment) }}</span>
+        <span>Total Volume: {{ getTotalVolume(selectedShipment) }}ml</span>
+      </div>
+      
+      <div class="action-buttons">
+        <button 
+          class="calculate-btn" 
+          (click)="calculateWeights()"
+          [disabled]="selectedShipment.products.length === 0"
+        >
+          🧮 Calculate Weights
+        </button>
+        <button 
+          class="save-btn" 
+          (click)="saveShipment()"
+          [disabled]="!selectedShipment.isCalculated"
+        >
+          💾 Save to Database
+        </button>
+      </div>
+    </div>
+
+    <!-- PRODUCTS TABLE -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product Name</th>
+            <th>Qty</th>
+            <th>Vol (ml)</th>
+            <th>HS Code</th>
+            <th>Unit Brutto (kg)</th>
+            <th>Unit Netto (kg)</th>
+            <th>Total Brutto (kg)</th>
+            <th>Total Netto (kg)</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of selectedShipment.products; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>
+              <div class="product-name-cell">{{ p.name }}</div>
+              <div class="hs-desc" *ngIf="p.hsDescription">
+                {{ p.hsDescription }}
+              </div>
+            </td>
+            <td>{{ p.quantity }}</td>
+            <td>{{ p.volumeMl }}</td>
+            <td>{{ p.hsCode || '-' }}</td>
+            <td>{{ p.unitBruttoWeightKg || '-' }}</td>
+            <td>{{ p.unitNettoWeightKg || '-' }}</td>
+            <td>{{ p.totalBruttoWeightKg || '-' }}</td>
+            <td>{{ p.totalNettoWeightKg || '-' }}</td>
+            <td>
+              <button class="remove-btn" (click)="removeProductFromShipment(p)">
+                Remove
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="selectedShipment.products.length === 0">
+            <td colspan="10" style="text-align: center; color: #999;">
+              No products added yet. Add products using the search or manual form.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="right placeholder" *ngIf="!selectedShipment">
+    <p>Select a shipment to view details</p>
+  </div>
+</div>

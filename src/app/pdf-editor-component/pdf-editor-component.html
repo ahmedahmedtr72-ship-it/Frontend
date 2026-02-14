@@ -1,0 +1,797 @@
+<div class="pdf-upload-container">
+  <!-- [Previous upload section remains the same] -->
+  <div class="upload-section">
+    
+    <!-- Multiple PDFs Upload -->
+    <div class="multi-upload-zone">
+      <input
+        type="file"
+        #multiFileInput
+        (change)="onMultipleFilesSelected($event)"
+        accept="application/pdf"
+        multiple
+        [disabled]="isLoading"
+        style="display: none"
+      />
+      <button class="upload-button" (click)="multiFileInput.click()" [disabled]="isLoading">
+        <span *ngIf="!isLoading">📚 Choisir plusieurs fichiers PDF</span>
+        <span *ngIf="isLoading">⏳ Traitement en cours...</span>
+      </button>
+
+      <!-- Selected Files List -->
+      <div *ngIf="selectedFiles.length > 0" class="selected-files-list">
+        <h4>📎 Fichiers sélectionnés ({{ selectedFiles.length }})</h4>
+        <div class="file-items">
+          <div *ngFor="let file of selectedFiles; let i = index" class="file-item">
+            <span class="file-icon">📄</span>
+            <span class="file-name">{{ file.name }}</span>
+            <span class="file-size">{{ (file.size / 1024).toFixed(1) }} KB</span>
+            <button class="remove-file-btn" (click)="removeSelectedFile(i)" title="Retirer">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata Form -->
+      <div *ngIf="showMetadataForm" class="metadata-form-section">
+        <h4>📝 Informations de livraison (Obligatoire)</h4>
+        <p class="help-text">Ces informations seront utilisées pour générer les documents</p>
+
+        <form class="metadata-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Numéro de dispatch *</label>
+              <input type="text" [(ngModel)]="metadata.dispatchNumber" name="dispatchNumber" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label>Date de dispatch *</label>
+              <input type="date" [(ngModel)]="metadata.dispatchDate" name="dispatchDate" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label>Date de génération *</label>
+              <input type="date" [(ngModel)]="metadata.generationDate" name="generationDate" class="form-input" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre de cartons *</label>
+              <input type="number" [(ngModel)]="metadata.numberOfCartons" name="numberOfCartons" class="form-input" min="1" required />
+            </div>
+            <div class="form-group">
+              <label>Nombre de palettes *</label>
+              <input type="number" [(ngModel)]="metadata.numberOfPallets" name="numberOfPallets" class="form-input" min="1" required />
+            </div>
+            <div class="form-group">
+              <label>Afficher palettes dans PDF</label>
+              <div class="toggle-container">
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="metadata.showPallets" name="showPallets" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-label">{{ metadata.showPallets ? 'Oui' : 'Non' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Type de transport</label>
+              <select [(ngModel)]="metadata.transportType" name="transportType" class="form-input">
+                <option value="Truck">Truck</option>
+                <option value="Ship">Ship</option>
+                <option value="Air">Air</option>
+                <option value="Rail">Rail</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label>De (From)</label>
+              <input type="text" [(ngModel)]="metadata.fromLocation" name="fromLocation" class="form-input" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label>À (To)</label>
+              <input type="text" [(ngModel)]="metadata.toLocation" name="toLocation" class="form-input" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Termes de livraison</label>
+              <input type="text" [(ngModel)]="metadata.deliveryTerms" name="deliveryTerms" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Termes de paiement</label>
+              <input type="text" [(ngModel)]="metadata.paymentTerms" name="paymentTerms" class="form-input" />
+            </div>
+          </div>
+
+          <button 
+            type="button" 
+            class="btn btn-primary btn-large" 
+            (click)="uploadMultipleFiles()"
+            [disabled]="isLoading">
+            🚀 Traiter les PDFs
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoading" class="loading-container">
+      <div class="spinner"></div>
+      <p class="loading-text">Extraction des données du PDF...</p>
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="uploadProgress"></div>
+      </div>
+      <p class="progress-text">{{ uploadProgress }}%</p>
+    </div>
+
+    <!-- Messages -->
+    <div *ngIf="errorMessage" class="alert alert-error">❌ {{ errorMessage }}</div>
+    <div *ngIf="successMessage" class="alert alert-success">✅ {{ successMessage }}</div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- ✅ CORRECTED: MISSING PRODUCTS MODAL -->
+  <!-- ============================================ -->
+ 
+<div *ngIf="showMissingProductsModal && currentMissingProduct" class="modal-overlay">
+  <div class="modal-content modal-wide" (click)="$event.stopPropagation()">
+       <div class="modal-header">
+      <h3>➕ Ajouter un Produit Manquant ({{ currentMissingIndex + 1 }}/{{ totalMissingProducts }})</h3>
+      <button class="close-btn" (click)="cancelMissingProducts()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Progress Bar -->
+      <div class="progress-info">
+        <div class="progress-text">
+          <span><strong>Progression:</strong> {{ currentMissingIndex }} complété(s), {{ remainingProducts }} restant(s)</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" [style.width.%]="(currentMissingIndex / totalMissingProducts) * 100"></div>
+        </div>
+      </div>
+
+      <!-- Source PDF Info -->
+      <div class="info-message" style="margin-bottom: 20px; background: #e3f2fd;">
+        <span class="info-icon">📄</span>
+        <span><strong>Fichier source:</strong> {{ currentMissingProduct.sourcePDF }}</span>
+      </div>
+
+      <!-- Product Form (SAME AS bd.component) -->
+      <form class="product-form">
+        
+        <!-- ROW 1: Product Name + Volume/Unit -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nom du Produit *
+              <span class="hint">📦 Nom du produit</span>
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="currentMissingProduct.name" 
+              name="name"
+              class="form-input"
+              placeholder="Balea Shampoo"
+              required 
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Quantité / Volume *
+              <span class="hint">📏 Valeur et unité</span>
+            </label>
+            <div class="volume-input-group">
+              <input 
+                type="number" 
+                [(ngModel)]="currentMissingProduct.volumeMl" 
+                name="volumeMl"
+                class="form-input volume-number" 
+                [placeholder]="currentMissingProduct.volumeUnit === 'St' ? '1' : '300'"
+                step="any" 
+                min="0" 
+                required 
+              />
+              <select 
+                [(ngModel)]="currentMissingProduct.volumeUnit" 
+                name="volumeUnit" 
+                class="form-input volume-unit"
+                required>
+                <option value="ml">ml</option>
+                <option value="g">g</option>
+                <option value="St">St (pièces)</option>
+              </select>
+            </div>
+            <small class="field-hint">
+              💡 Utilisez "St" pour les articles vendus à la pièce
+            </small>
+          </div>
+        </div>
+
+        <!-- ROW 2: HS Code + HS Description -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Code HS *
+              <span class="hint">📋 Sélectionnez un code</span>
+            </label>
+            <select 
+              [(ngModel)]="currentMissingProduct.hsCode" 
+              name="hsCode"
+              (change)="onHsCodeChange(currentMissingProduct.hsCode)" 
+              class="form-input" 
+              required>
+              <option value="">-- Sélectionner un code HS --</option>
+
+              <ng-container *ngFor="let group of getGroupedHsCodes() | keyvalue">
+                <optgroup [label]="group.key">
+                  <option *ngFor="let hsCode of group.value" [value]="hsCode.code">
+                    {{ hsCode.code }} - {{ hsCode.description }}
+                  </option>
+                </optgroup>
+              </ng-container>
+            </select>
+
+            <!-- Add New HS Code Button -->
+            <button 
+              type="button" 
+              class="btn btn-link" 
+              (click)="toggleAddHsCode()"
+              style="margin-top: 8px; font-size: 13px;">
+              {{ showAddHsCode ? '➖ Annuler' : '➕ Ajouter un nouveau code HS' }}
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label>Description HS
+              <span class="hint">✨ Rempli automatiquement</span>
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="currentMissingProduct.hsDescription" 
+              name="hsDescription" 
+              class="form-input"
+              placeholder="Rempli depuis le code HS" 
+              [readonly]="!showAddHsCode"
+              [class.auto-filled]="currentMissingProduct.hsDescription && !showAddHsCode" 
+            />
+          </div>
+        </div>
+
+        <!-- Add New HS Code Section -->
+        <div *ngIf="showAddHsCode" class="info-box" style="background: #f0f9ff; border-color: #3b82f6;">
+          <div class="info-icon">➕</div>
+          <div class="info-content">
+            <strong>Ajouter un nouveau code HS:</strong>
+            <div style="display: flex; gap: 12px; margin-top: 12px;">
+              <input 
+                type="text" 
+                [(ngModel)]="newHsCode.code" 
+                name="newHsCode" 
+                class="form-input"
+                placeholder="ex: 3305.10.00" 
+                style="flex: 1;" 
+              />
+              <input 
+                type="text" 
+                [(ngModel)]="newHsCode.description" 
+                name="newHsDescription" 
+                class="form-input"
+                placeholder="ex: Shampooings" 
+                style="flex: 2;" 
+              />
+              <button 
+                type="button" 
+                class="btn btn-primary" 
+                (click)="addNewHsCode()" 
+                style="white-space: nowrap;">
+                ✅ Ajouter
+              </button>
+            </div>
+            <small style="color: #666; margin-top: 4px; display: block;">
+              Ce code sera disponible pour ce produit uniquement
+            </small>
+          </div>
+        </div>
+
+        <!-- ROW 3: Weights -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Poids Brut Unitaire (kg) *
+              <span class="hint">⚖️ Poids total avec emballage</span>
+            </label>
+            <input 
+              type="number" 
+              [(ngModel)]="currentMissingProduct.unitBruttoWeightKg" 
+              name="unitBruttoWeightKg"
+              class="form-input" 
+              placeholder="0.335" 
+              step="0.001" 
+              min="0" 
+              required 
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Poids Net Unitaire (kg) *
+              <span class="hint">📦 Poids du produit uniquement</span>
+            </label>
+            <input 
+              type="number" 
+              [(ngModel)]="currentMissingProduct.unitNettoWeightKg" 
+              name="unitNettoWeightKg"
+              class="form-input" 
+              placeholder="0.300" 
+              step="0.001" 
+              min="0" 
+              required 
+            />
+          </div>
+        </div>
+
+        <!-- Quick Calc Buttons -->
+        <div class="info-box" style="background: #f0f9ff; border-color: #3b82f6; margin-bottom: 20px;">
+          <div class="info-icon">🧮</div>
+          <div class="info-content">
+            <strong>Calculateur Rapide de Poids Net (depuis Brut):</strong>
+            <p style="font-size: 13px; color: #666; margin: 8px 0;">
+              Entrez le poids brut ci-dessus, puis cliquez sur un bouton selon le type d'emballage
+            </p>
+            <div class="quick-calc-buttons">
+              <button 
+                type="button" 
+                class="btn-calc" 
+                (click)="calculateNettoFromBrutto('cream_jar')"
+                title="Pour crèmes, masques, baumes en pots (~10% emballage)">
+                🫙 Pot (1.10)
+              </button>
+              <button 
+                type="button" 
+                class="btn-calc" 
+                (click)="calculateNettoFromBrutto('bottle')"
+                title="Pour shampoings, gels douche en bouteilles (~15% emballage)">
+                🧴 Bouteille (1.15)
+              </button>
+              <button 
+                type="button" 
+                class="btn-calc" 
+                (click)="calculateNettoFromBrutto('tube')"
+                title="Pour tubes - emballage le plus léger (~8% emballage)">
+                📝 Tube (1.08)
+              </button>
+              <button 
+                type="button" 
+                class="btn-calc" 
+                (click)="calculateNettoFromBrutto('pump')"
+                title="Pour flacons pompe, lotions (~12% emballage)">
+                🧴 Pompe (1.12)
+              </button>
+            </div>
+            <small style="color: #666; margin-top: 8px; display: block;">
+              💡 Formule: Netto = Brut ÷ Ratio (ex: 0.330 kg ÷ 1.10 = 0.300 kg netto)
+            </small>
+          </div>
+        </div>
+
+        <!-- ROW 4: GTIN + Country -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>GTIN
+              <span class="hint">✨ Code-barres</span>
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="currentMissingProduct.gtin" 
+              name="gtin" 
+              class="form-input"
+              placeholder="Optionnel" 
+              [class.auto-filled]="currentMissingProduct.gtin" 
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Pays d'Origine
+              <span class="hint">🌍 Pays de fabrication</span>
+            </label>
+            <select 
+              [(ngModel)]="currentMissingProduct.countryOfOrigin" 
+              name="countryOfOrigin" 
+              class="form-input"
+              [class.auto-filled]="currentMissingProduct.countryOfOrigin !== 'DE'">
+              <option value="DE">🇩🇪 Allemagne</option>
+              <option value="FR">🇫🇷 France</option>
+              <option value="IT">🇮🇹 Italie</option>
+              <option value="ES">🇪🇸 Espagne</option>
+              <option value="PL">🇵🇱 Pologne</option>
+              <option value="CN">🇨🇳 Chine</option>
+              <option value="VN">🇻🇳 Vietnam</option>
+              <option value="NL">🇳🇱 Pays-Bas</option>
+              <option value="BE">🇧🇪 Belgique</option>
+              <option value="AT">🇦🇹 Autriche</option>
+              <option value="CH">🇨🇭 Suisse</option>
+              <option value="CZ">🇨🇿 République Tchèque</option>
+              <option value="HU">🇭🇺 Hongrie</option>
+              <option value="RO">🇷🇴 Roumanie</option>
+              <option value="BG">🇧🇬 Bulgarie</option>
+            </select>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <div class="modal-footer" style="justify-content: space-between;">
+      <button class="btn btn-secondary" (click)="cancelMissingProducts()">
+        ❌ Annuler Tout
+      </button>
+      
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-link" (click)="skipCurrentProduct()">
+          ⏭️ Ignorer ce produit
+        </button>
+        <button class="btn btn-primary btn-large" (click)="saveCurrentAndNext()">
+          {{ currentMissingIndex < totalMissingProducts - 1 ? '💾 Enregistrer et Suivant' : '✅ Enregistrer et Terminer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+  <!-- ============================================ -->
+  <!-- ✅ INGREDIENT DATES MODAL -->
+  <!-- ============================================ -->
+  <div *ngIf="showIngredientDatesModal" class="modal-overlay">
+    <div class="modal-content ingredient-dates-modal">
+      <div class="modal-header">
+        <h3>📅 Dates de Création des Fiches d'Ingrédient</h3>
+        <button class="close-btn" (click)="cancelIngredientGeneration()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="info-text">
+          Définissez la date de création pour chaque fiche d'ingrédient. 
+          Vous pouvez définir une date différente pour chaque produit.
+        </p>
+
+        <!-- Quick action button -->
+        <div class="quick-actions">
+          <button class="btn btn-secondary btn-sm" (click)="applyDateToAll()">
+            📋 Appliquer la première date à tous
+          </button>
+        </div>
+
+        <!-- Dates Table -->
+        <div class="ingredient-dates-table-container">
+          <table class="ingredient-dates-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>GTIN</th>
+                <th>Nom du Produit</th>
+                <th style="width: 180px;">Date de Création *</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of ingredientDatesData; let i = index">
+                <td class="index-cell">{{ i + 1 }}</td>
+                <td class="gtin-cell">{{ item.gtin }}</td>
+                <td class="name-cell">
+                  <strong>{{ item.name }}</strong>
+                </td>
+                <td class="date-cell">
+                  <input 
+                    type="date" 
+                    [(ngModel)]="item.date" 
+                    class="date-input"
+                    required
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="info-message" style="margin-top: 20px;">
+          <span class="info-icon">ℹ️</span>
+          <span>
+            Chaque fiche d'ingrédient sera générée avec la date que vous avez spécifiée. 
+            Format: YYYY-MM-DD (ex: 2026-02-11)
+          </span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cancelIngredientGeneration()">
+          Annuler
+        </button>
+        <button class="btn btn-primary btn-large" (click)="confirmIngredientGeneration()">
+          🧪 Générer {{ ingredientDatesData.length }} Fiche(s)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products Section -->
+  <div *ngIf="products.length > 0 && !isLoading">
+    
+    <!-- Action Buttons -->
+    <div class="action-bar">
+      <div class="action-left">
+        <h3>Produits extraits ({{ products.length }})</h3>
+        <span *ngIf="hasChanges" class="changes-badge">✏️ Modifié</span>
+      </div>
+      <div class="action-buttons">
+        <button 
+          class="btn btn-reset" 
+          (click)="resetToOriginal()"
+          [disabled]="!hasChanges"
+          title="Restaurer les données originales"
+        >
+          🔄 Restaurer
+        </button>
+        <button class="btn btn-new" (click)="resetUpload()">
+          ➕ Nouveau fichier
+        </button>
+      </div>
+    </div>
+
+    <!-- Uploaded PDFs Info -->
+    <div *ngIf="uploadedPDFsInfo.length > 0" class="uploaded-pdfs-info">
+      <h5>📦 PDFs traités ({{ uploadedPDFsInfo.length }})</h5>
+      <div *ngFor="let pdf of uploadedPDFsInfo" class="pdf-info-item">
+        <span class="label">{{ pdf.filename }}</span>
+        <span class="value">{{ pdf.productsCount }} produits · {{ pdf.subtotal | number:'1.2-2' }} €</span>
+        <span *ngIf="pdf.missingCount > 0" class="warning-badge">⚠️ {{ pdf.missingCount }} manquant(s)</span>
+      </div>
+    </div>
+
+    <!-- Download Buttons Section -->
+    <div class="download-section">
+      <h4>📄 Télécharger les documents</h4>
+      
+      <div class="download-group">
+        <div class="button-section">
+          <label class="section-label">👁️ Aperçu (Nouvel onglet)</label>
+          <div class="button-row">
+            <button 
+              class="btn btn-preview btn-delivery"
+              (click)="previewDeliveryNote(true)"
+              [disabled]="generatingDelivery"
+            >
+              <span *ngIf="!generatingDelivery">📦 Delivery Note</span>
+              <span *ngIf="generatingDelivery">⏳ Génération...</span>
+            </button>
+            
+            <button 
+              class="btn btn-preview btn-invoice"
+              (click)="previewInvoice(true)"
+              [disabled]="generatingInvoice"
+            >
+              <span *ngIf="!generatingInvoice">🧾 Invoice</span>
+              <span *ngIf="generatingInvoice">⏳ Génération...</span>
+            </button>
+            
+            <button 
+              class="btn btn-preview btn-both"
+              (click)="previewBoth(true)"
+              [disabled]="generatingDelivery || generatingInvoice"
+            >
+              <span *ngIf="!generatingDelivery && !generatingInvoice">📋 Les deux</span>
+              <span *ngIf="generatingDelivery || generatingInvoice">⏳ Génération...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modified Documents (if changes exist) -->
+      <div class="download-group modified-group" *ngIf="hasChanges">
+        <h5>Documents Modifiés ✏️</h5>
+        
+        <div class="button-section">
+          <label class="section-label">👁️ Aperçu (Nouvel onglet)</label>
+          <div class="button-row">
+            <button 
+              class="btn btn-preview btn-delivery btn-modified"
+              (click)="previewDeliveryNote(false)"
+              [disabled]="generatingDelivery || !hasChanges"
+            >
+              <span *ngIf="!generatingDelivery">📦 Delivery Note</span>
+              <span *ngIf="generatingDelivery">⏳ Génération...</span>
+            </button>
+            
+            <button 
+              class="btn btn-preview btn-invoice btn-modified"
+              (click)="previewInvoice(false)"
+              [disabled]="generatingInvoice || !hasChanges"
+            >
+              <span *ngIf="!generatingInvoice">🧾 Invoice</span>
+              <span *ngIf="generatingInvoice">⏳ Génération...</span>
+            </button>
+            
+            <button 
+              class="btn btn-preview btn-both btn-modified"
+              (click)="previewBoth(false)"
+              [disabled]="generatingDelivery || generatingInvoice || !hasChanges"
+            >
+              <span *ngIf="!generatingDelivery && !generatingInvoice">📋 Les deux</span>
+              <span *ngIf="generatingDelivery || generatingInvoice">⏳ Génération...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-message">
+        <span class="info-icon">ℹ️</span>
+        <span>Les PDFs s'ouvriront dans des onglets séparés. Autorisez les popups si nécessaire.</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table class="products-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Art. No</th>
+            <th>Nom du produit</th>
+            <th>HS Code</th>
+            <th>Statut</th>
+            <th>Quantité</th>
+            <th>Prix Total</th>
+            <th>Poids Net (kg)</th>
+            <th>Poids Brut (kg)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let product of products; let i = index" 
+              class="product-row"
+              [class.product-found]="product.status === 'found'"
+              [class.product-missing]="product.status === 'missing' || product.status === 'completed'">
+            <td>{{ product.pos }}</td>
+            
+            <td (dblclick)="startEdit(i, 'articleNo')" class="editable-cell">
+              <input 
+                *ngIf="isEditing(i, 'articleNo')" 
+                [(ngModel)]="product.articleNo"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'articleNo')">{{ product.articleNo }}</span>
+            </td>
+
+            <td (dblclick)="startEdit(i, 'name')" class="editable-cell product-name">
+              <input 
+                *ngIf="isEditing(i, 'name')" 
+                [(ngModel)]="product.name"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'name')">{{ product.name }}</span>
+            </td>
+
+            <td (dblclick)="startEdit(i, 'hsCode')" class="editable-cell">
+              <input 
+                *ngIf="isEditing(i, 'hsCode')" 
+                [(ngModel)]="product.hsCode"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'hsCode')">{{ product.hsCode || 'N/A' }}</span>
+            </td>
+
+            <td>
+              <span *ngIf="product.status === 'found'" class="status-badge status-found">✓ Trouvé</span>
+              <span *ngIf="product.status === 'missing'" class="status-badge status-missing">⚠ Manquant</span>
+              <span *ngIf="product.status === 'completed'" class="status-badge status-completed">✓ Complété</span>
+            </td>
+
+            <td (dblclick)="startEdit(i, 'quantity')" class="editable-cell">
+              <input 
+                *ngIf="isEditing(i, 'quantity')" 
+                type="number"
+                [(ngModel)]="product.quantity"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'quantity')">{{ product.quantity }}</span>
+            </td>
+
+            <td (dblclick)="startEdit(i, 'totalPrice')" class="editable-cell price">
+              <input 
+                *ngIf="isEditing(i, 'totalPrice')" 
+                type="number"
+                step="0.01"
+                [(ngModel)]="product.totalPrice"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'totalPrice')">{{ product.totalPrice | number:'1.2-2' }} €</span>
+            </td>
+
+            <td (dblclick)="startEdit(i, 'nettoWeight')" class="editable-cell">
+              <input 
+                *ngIf="isEditing(i, 'nettoWeight')" 
+                type="number"
+                step="0.001"
+                [(ngModel)]="product.nettoWeight"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'nettoWeight')">
+                {{ product.nettoWeight > 0 ? (product.nettoWeight | number:'1.3-3') : 'N/A' }}
+              </span>
+            </td>
+
+            <td (dblclick)="startEdit(i, 'bruttoWeight')" class="editable-cell">
+              <input 
+                *ngIf="isEditing(i, 'bruttoWeight')" 
+                type="number"
+                step="0.001"
+                [(ngModel)]="product.bruttoWeight"
+                (blur)="stopEdit()"
+                (change)="onCellChange()"
+                (keyup.enter)="stopEdit()"
+                class="cell-input"
+                autofocus
+              />
+              <span *ngIf="!isEditing(i, 'bruttoWeight')">
+                {{ product.bruttoWeight > 0 ? (product.bruttoWeight | number:'1.3-3') : 'N/A' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="6"><strong>TOTAL</strong></td>
+            <td class="price"><strong>{{ total | number:'1.2-2' }} €</strong></td>
+            <td><strong>{{ totalNetto | number:'1.3-3' }} kg</strong></td>
+            <td><strong>{{ totalBrutto | number:'1.3-3' }} kg</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Ingredient Sheets Generation -->
+    <div class="download-section" style="margin-top: 30px; border-top: 2px solid #e0e0e0; padding-top: 30px;">
+      <h4>📋 Fiches d'ingrédient</h4>
+      
+      <div class="button-section">
+        <label class="section-label">Générer les fiches avec dates individuelles</label>
+        <button 
+          class="btn btn-primary btn-large"
+          (click)="generateIngredientSheets()"
+          [disabled]="generatingIngredients || products.length === 0"
+          style="background: #28a745; border-color: #28a745; width: 100%; margin-top: 10px;"
+        >
+          <span *ngIf="!generatingIngredients">🧪 Configurer les dates et générer</span>
+          <span *ngIf="generatingIngredients">⏳ Génération en cours...</span>
+        </button>
+        <p class="help-text" style="margin-top: 10px; color: #666; font-size: 13px;">
+          💡 Vous pourrez définir une date différente pour chaque fiche d'ingrédient
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

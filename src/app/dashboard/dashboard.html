@@ -1,0 +1,284 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <h1 class="dashboard-title">Product Weight Knowledge</h1>
+      <p class="dashboard-subtitle">Comprehensive product specifications and weight data</p>
+    </div>
+    
+    <!-- Search Bar -->
+    <div class="search-container">
+      <input 
+        type="text" 
+        class="search-input" 
+        placeholder="Search products or HS codes..."
+        [(ngModel)]="searchQuery"
+        (input)="onSearch()"
+      />
+      <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM18 18l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div *ngIf="loading && products.length === 0" class="loading-state">
+    <div class="loading-spinner"></div>
+    <p>Loading products...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+      <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <p>{{ error }}</p>
+    <button class="retry-button" (click)="loadProducts()">Retry</button>
+  </div>
+
+  <!-- Main Content -->
+  <div *ngIf="!loading || products.length > 0" class="dashboard-content">
+    
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-1">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M9 9h6M9 12h6M9 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Total Products</p>
+          <p class="stat-value">{{ totalProducts }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Avg Volume</p>
+          <p class="stat-value">{{ formatVolume(avgVolume) }}<span class="stat-unit">ml</span></p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-3">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Avg Weight</p>
+          <p class="stat-value">{{ formatWeight(avgWeight) }}<span class="stat-unit">kg</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Table -->
+    <div class="table-container">
+      <div class="table-header">
+        <h2>Product Catalog</h2>
+        <span class="table-count">{{ filteredProducts.length }} products</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th>Product Name</th>
+              <th>Volume (ml)</th>
+              <th>Brutto Weight (kg)</th>
+              <th>Netto Weight (kg)</th>
+              <th>HS Code</th>
+              <th>Samples</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let product of filteredProducts; let i = index; trackBy: trackByProductId" 
+                [style.animation-delay]="(i * 0.03) + 's'">
+              <td class="product-name">
+                <div class="product-name-content">
+                  <span class="name-text">{{ product.name }}</span>
+                </div>
+              </td>
+              <td>{{ formatVolume(product.volumeMl) }}</td>
+              <td>{{ formatWeight(product.avgUnitBruttoWeightKg) }}</td>
+              <td>{{ formatWeight(product.avgUnitNettoWeightKg) }}</td>
+              <td><code class="hs-code">{{ product.hsCode }}</code></td>
+              <td><span class="sample-badge">{{ product.samples || 1 }}</span></td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn-edit" (click)="openEditModal(product)" title="Edit" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <button class="btn-delete" (click)="openDeleteModal(product)" title="Delete" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div *ngIf="filteredProducts.length === 0 && !loading" class="empty-state">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <h3>No products found</h3>
+          <p>Try adjusting your search query</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div *ngIf="showEditModal" class="modal-overlay" (click)="closeEditModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Edit Product</h2>
+        <button class="modal-close" (click)="closeEditModal()" type="button">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6L6 18M6 6l12 12" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <form (ngSubmit)="saveProduct()" #editProductForm="ngForm">
+          <div class="form-group">
+            <label for="edit-name">Product Name</label>
+            <input 
+              id="edit-name" 
+              type="text" 
+              [(ngModel)]="editForm.name" 
+              name="name"
+              class="form-control"
+              placeholder="Enter product name"
+              required
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-volume">Volume (ml)</label>
+              <input 
+                id="edit-volume" 
+                type="number" 
+                [(ngModel)]="editForm.volumeMl" 
+                name="volumeMl"
+                class="form-control"
+                placeholder="0"
+                required
+                min="0"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-samples">Samples</label>
+              <input 
+                id="edit-samples" 
+                type="number" 
+                [(ngModel)]="editForm.samples" 
+                name="samples"
+                class="form-control"
+                placeholder="1"
+                min="1"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-brutto">Brutto Weight (kg)</label>
+              <input 
+                id="edit-brutto" 
+                type="number" 
+                step="0.001"
+                [(ngModel)]="editForm.avgUnitBruttoWeightKg" 
+                name="avgUnitBruttoWeightKg"
+                class="form-control"
+                placeholder="0.000"
+                required
+                min="0"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-netto">Netto Weight (kg)</label>
+              <input 
+                id="edit-netto" 
+                type="number" 
+                step="0.001"
+                [(ngModel)]="editForm.avgUnitNettoWeightKg" 
+                name="avgUnitNettoWeightKg"
+                class="form-control"
+                placeholder="0.000"
+                required
+                min="0"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-hscode">HS Code</label>
+            <input 
+              id="edit-hscode" 
+              type="text" 
+              [(ngModel)]="editForm.hsCode" 
+              name="hsCode"
+              class="form-control"
+              placeholder="Enter HS code"
+              required
+            />
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeEditModal()" type="button">Cancel</button>
+        <button class="btn-save" (click)="saveProduct()" type="button">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div *ngIf="showDeleteModal" class="modal-overlay" (click)="closeDeleteModal()">
+    <div class="modal-content modal-small" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Confirm Delete</h2>
+        <button class="modal-close" (click)="closeDeleteModal()" type="button">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6L6 18M6 6l12 12" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <p class="delete-message">
+          Are you sure you want to delete <strong>{{ deletingProduct?.name }}</strong>?
+        </p>
+        <p class="delete-warning">⚠ This action cannot be undone.</p>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeDeleteModal()" type="button">Cancel</button>
+        <button class="btn-delete-confirm" (click)="confirmDelete()" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
