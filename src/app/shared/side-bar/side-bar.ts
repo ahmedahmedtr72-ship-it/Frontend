@@ -36,6 +36,7 @@ export class SidebarComponent {
         { label: 'factures générées', icon: 'projects', route: '/generated-invoices' },
         { label: 'Nos packs', icon: 'pack', route: '/pack' },
         { label: ' ingrédients', icon: 'pack', route: '/ingredients' },
+        { label: 'Liste de colisage', icon: 'list', route: '/packinglist' },
       ]
     }
   ];

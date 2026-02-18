@@ -1,0 +1,334 @@
+<div class="packing-list-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1>📦 Packing Lists</h1>
+    <button class="btn btn-primary" (click)="openCreateModal()">
+      ➕ Create Packing List
+    </button>
+  </div>
+
+  <!-- Messages -->
+  <div *ngIf="successMessage" class="alert alert-success">✅ {{ successMessage }}</div>
+  <div *ngIf="errorMessage" class="alert alert-error">❌ {{ errorMessage }}</div>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading && !showCreateModal" class="loading">Loading...</div>
+
+  <!-- Packing Lists Table -->
+  <div *ngIf="!isLoading" class="table-container">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Sendung #</th>
+          <th>Source</th>
+          <th>Products</th>
+          <th>Total Brutto (kg)</th>
+          <th>Total Netto (kg)</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let pl of packingLists">
+          <td><strong>{{ pl.sendungNum }}</strong></td>
+          <td>{{ pl.uploadedPdfFilename || 'Manual Selection' }}</td>
+          <td>{{ pl.products.length }} items</td>
+          <td>{{ pl.totalBrutto | number:'1.3-3' }}</td>
+          <td>{{ pl.totalNetto | number:'1.3-3' }}</td>
+          <td>{{ formatDate(pl.createdAt) }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" (click)="generatePdf(pl)">📄 PDF</button>
+            <button class="btn btn-sm btn-danger" (click)="deletePackingList(pl._id)">🗑️</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- CREATE MODAL -->
+  <!-- ============================================ -->
+  <div *ngIf="showCreateModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>➕ Create Packing List</h3>
+        <button class="close-btn" (click)="closeCreateModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- ============================================ -->
+        <!-- STEP 1: Enter Sendung Number -->
+        <!-- ============================================ -->
+        <div *ngIf="currentStep === 1">
+          <div class="step-indicator">
+            <span class="step active">1. Sendung Number</span>
+            <span class="step">2. Selection Mode</span>
+            <span class="step">3. Products</span>
+            <span class="step">4. Review</span>
+          </div>
+
+          <div class="form-group">
+            <label>Sendung Number *</label>
+            <input 
+              type="text" 
+              [(ngModel)]="sendungNum" 
+              name="sendungNum" 
+              class="form-input" 
+              placeholder="SEND-001" 
+              required 
+              (keyup.enter)="proceedToChoice()"
+            />
+          </div>
+          
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+            <button class="btn btn-primary" (click)="proceedToChoice()">
+              Next: Choose Mode →
+            </button>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- STEP 2: Choose Selection Mode -->
+        <!-- ============================================ -->
+        <div *ngIf="currentStep === 2">
+          <div class="step-indicator">
+            <span class="step done">✓ Sendung Number</span>
+            <span class="step active">2. Selection Mode</span>
+            <span class="step">3. Products</span>
+            <span class="step">4. Review</span>
+          </div>
+
+          <h4 style="margin-bottom: 24px; color: #a5b4fc;">How would you like to select products?</h4>
+
+          <div class="mode-selection">
+            <div class="mode-card" (click)="selectMode('pdf')">
+              <div class="mode-icon">📄</div>
+              <h3>Upload Invoice PDF</h3>
+              <p>Parse products from a DM invoice and select from the list</p>
+              <button class="btn btn-primary">Use PDF</button>
+            </div>
+
+            <div class="mode-card" (click)="selectMode('manual')">
+              <div class="mode-icon">🔍</div>
+              <h3>Manual Selection</h3>
+              <p>Search and manually select products from the database</p>
+              <button class="btn btn-primary">Manual Select</button>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="currentStep = 1">← Back</button>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- STEP 3: Upload PDF (PDF Mode) -->
+        <!-- ============================================ -->
+        <div *ngIf="currentStep === 3">
+          <div class="step-indicator">
+            <span class="step done">✓ Sendung Number</span>
+            <span class="step done">✓ PDF Mode</span>
+            <span class="step active">3. Upload Invoice</span>
+            <span class="step">4. Review</span>
+          </div>
+
+          <div class="upload-section">
+            <input 
+              type="file" 
+              #fileInput 
+              (change)="onPdfFileSelected($event)" 
+              accept="application/pdf" 
+              style="display: none"
+            />
+            <button class="btn btn-secondary btn-large" (click)="fileInput.click()" [disabled]="isParsingPdf">
+              📄 Select Invoice PDF
+            </button>
+            <p *ngIf="uploadedPdfFilename" class="filename">✅ Selected: <strong>{{ uploadedPdfFilename }}</strong></p>
+          </div>
+
+          <div class="info-box" style="margin-top: 20px;">
+            <div class="info-icon">💡</div>
+            <div class="info-content">
+              <strong>Upload your DM invoice PDF</strong>
+              <p>The system will automatically parse the invoice and match products with your database.</p>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="currentStep = 2">← Back</button>
+            <button 
+              class="btn btn-primary" 
+              (click)="uploadAndParsePdf()" 
+              [disabled]="!selectedPdfFile || isParsingPdf"
+            >
+              {{ isParsingPdf ? '⏳ Parsing PDF...' : 'Parse PDF & Continue →' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- STEP 4: Manual Product Selection -->
+        <!-- ============================================ -->
+        <div *ngIf="currentStep === 4">
+          <div class="step-indicator">
+            <span class="step done">✓ Sendung Number</span>
+            <span class="step done">✓ Manual Mode</span>
+            <span class="step active">3. Select Products</span>
+            <span class="step">4. Review</span>
+          </div>
+
+          <!-- Product Search -->
+          <div class="form-group" style="position: relative;">
+            <label>Search Products</label>
+            <input
+              type="text"
+              [(ngModel)]="productSearchQuery"
+              (input)="onProductSearch()"
+              name="productSearch"
+              class="form-input"
+              placeholder="Type product name, GTIN, or HS code..."
+            />
+            
+            <!-- Search Results Dropdown -->
+            <div *ngIf="showProductSearch && productSearchResults.length > 0" class="search-results">
+              <div *ngFor="let product of productSearchResults" class="search-item" (click)="selectProductManually(product)">
+                <strong>{{ product.name }}</strong>
+                <span style="color: #9ca3af; font-size: 13px;">{{ product.volumeMl }}{{ product.volumeUnit }} - GTIN: {{ product.gtin || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selected Products Table -->
+          <div *ngIf="manuallySelectedProducts.length > 0" class="selected-products">
+            <h4>Selected Products ({{ manuallySelectedProducts.length }})</h4>
+            <table class="table-sm">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>GTIN</th>
+                  <th>Quantity</th>
+                  <th>Brutto (kg)</th>
+                  <th>Netto (kg)</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of manuallySelectedProducts; let i = index">
+                  <td><strong>{{ item.name }}</strong></td>
+                  <td>{{ item.gtin || 'N/A' }}</td>
+                  <td>
+                    <input type="number" [(ngModel)]="item.quantity" [name]="'qty-'+i" min="1" class="qty-input" />
+                  </td>
+                  <td>{{ (item.unitBruttoWeightKg * item.quantity) | number:'1.3-3' }}</td>
+                  <td>{{ (item.unitNettoWeightKg * item.quantity) | number:'1.3-3' }}</td>
+                  <td><button class="btn-sm btn-danger" (click)="removeManualProduct(i)">✕</button></td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3"><strong>TOTAL</strong></td>
+                  <td><strong>{{ getTotalBrutto() | number:'1.3-3' }}</strong></td>
+                  <td><strong>{{ getTotalNetto() | number:'1.3-3' }}</strong></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="currentStep = 2">← Back</button>
+            <button 
+              class="btn btn-primary" 
+              (click)="proceedToReviewManual()"
+              [disabled]="manuallySelectedProducts.length === 0"
+            >
+              Continue to Review →
+            </button>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- STEP 5: Review & Finalize (Both Modes) -->
+        <!-- ============================================ -->
+        <div *ngIf="currentStep === 5">
+          <div class="step-indicator">
+            <span class="step done">✓ Sendung Number</span>
+            <span class="step done">✓ {{ selectionMode === 'pdf' ? 'PDF Parsed' : 'Products Selected' }}</span>
+            <span class="step done">✓ Products</span>
+            <span class="step active">4. Review & Create</span>
+          </div>
+
+          <div class="products-review">
+            <div class="review-header">
+              <h4>📦 Review Selected Products</h4>
+              <div class="actions">
+                <button class="btn-link" (click)="selectAll()">Select All</button>
+                <button class="btn-link" (click)="deselectAll()">Deselect All</button>
+              </div>
+            </div>
+
+            <!-- Warning for not found products (PDF mode only) -->
+            <div *ngIf="selectionMode === 'pdf' && notFoundProducts.length > 0" class="warning-box">
+              ⚠️ {{ notFoundProducts.length }} products from PDF not found in database (will be skipped)
+            </div>
+
+            <table class="table-sm">
+              <thead>
+                <tr>
+                  <th style="width: 40px">✓</th>
+                  <th>Product</th>
+                  <th>GTIN</th>
+                  <th>Quantity</th>
+                  <th>Brutto (kg)</th>
+                  <th>Netto (kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let product of currentProducts" [class.selected]="product.selected">
+                  <td>
+                    <input 
+                      type="checkbox" 
+                      [(ngModel)]="product.selected" 
+                      class="checkbox"
+                    />
+                  </td>
+                  <td><strong>{{ product.name }}</strong></td>
+                  <td>{{ product.gtin || 'N/A' }}</td>
+                  <td>
+                    <input 
+                      type="number" 
+                      [(ngModel)]="product.quantity" 
+                      min="1" 
+                      class="qty-input"
+                    />
+                  </td>
+                  <td>{{ (product.unitBruttoWeightKg * product.quantity) | number:'1.3-3' }}</td>
+                  <td>{{ (product.unitNettoWeightKg * product.quantity) | number:'1.3-3' }}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4"><strong>TOTAL ({{ selectedProductsCount }} selected)</strong></td>
+                  <td><strong>{{ getTotalBrutto() | number:'1.3-3' }}</strong></td>
+                  <td><strong>{{ getTotalNetto() | number:'1.3-3' }}</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="currentStep = selectionMode === 'pdf' ? 3 : 4">← Back</button>
+            <button 
+              class="btn btn-primary btn-large" 
+              (click)="createPackingList()" 
+              [disabled]="selectedProductsCount === 0 || isLoading"
+            >
+              {{ isLoading ? '⏳ Creating...' : '✅ Create Packing List' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

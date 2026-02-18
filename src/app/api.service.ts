@@ -21,12 +21,14 @@ export class ApiService {
     formData.append('file', file);
     return this.http.post<ParseResponse>(`${this.baseUrl}/parse`, formData);
   }
-
+generateFrenchPDF(body: any): Observable<any> {
+  return this.http.post(`${this.baseUrl}/pdf/generate-french`, body);
+}
   parseMultiplePDFs(formData: FormData): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/parse-multiple`, formData);
   }
 
-  generatePDF(data: InvoiceData): Observable<any> {
+  generatePDF(data: InvoiceData): Observable<any> { 
     return this.http.post<any>(`${this.baseUrl}/generate`, data);
   }
 

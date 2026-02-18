@@ -4,9 +4,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 
-interface ProductAdded {
+ interface ProductAdded {
   _id?: string;
   name: string;
+  frenchName: string;        // ✅ NEW
   volumeMl: number;
   volumeUnit?: string;
   hsCode: string;
@@ -791,57 +792,62 @@ export class Bd implements OnDestroy {
   // ============================================
   // VALIDATION
   // ============================================
-  validateProduct(): boolean {
-    if (!this.currentProduct.name?.trim()) {
-      this.errorMessage = 'Product name is required';
-      return false;
-    }
-
-    if (this.currentProduct.volumeUnit === 'St') {
-      if (this.currentProduct.volumeMl === undefined || this.currentProduct.volumeMl === null) {
-        this.currentProduct.volumeMl = 1;
-      }
-    } else {
-      if (!this.currentProduct.volumeMl || this.currentProduct.volumeMl <= 0) {
-        this.errorMessage = 'Valid volume/quantity is required';
-        return false;
-      }
-    }
-
-    if (!this.currentProduct.hsCode?.trim()) {
-      this.errorMessage = 'HS Code is required';
-      return false;
-    }
-
-    if (!this.currentProduct.unitBruttoWeightKg || this.currentProduct.unitBruttoWeightKg <= 0) {
-      this.errorMessage = 'Valid brutto weight is required';
-      return false;
-    }
-
-    if (!this.currentProduct.unitNettoWeightKg || this.currentProduct.unitNettoWeightKg <= 0) {
-      this.errorMessage = 'Valid netto weight is required';
-      return false;
-    }
-
-    return true;
+ validateProduct(): boolean {
+  if (!this.currentProduct.name?.trim()) {
+    this.errorMessage = 'Product name is required';
+    return false;
   }
 
+  if (!this.currentProduct.frenchName?.trim()) {   // ✅ NEW
+    this.errorMessage = 'French name is required';
+    return false;
+  }
+
+  if (this.currentProduct.volumeUnit === 'St') {
+    if (this.currentProduct.volumeMl === undefined || this.currentProduct.volumeMl === null) {
+      this.currentProduct.volumeMl = 1;
+    }
+  } else {
+    if (!this.currentProduct.volumeMl || this.currentProduct.volumeMl <= 0) {
+      this.errorMessage = 'Valid volume/quantity is required';
+      return false;
+    }
+  }
+
+  if (!this.currentProduct.hsCode?.trim()) {
+    this.errorMessage = 'HS Code is required';
+    return false;
+  }
+
+  if (!this.currentProduct.unitBruttoWeightKg || this.currentProduct.unitBruttoWeightKg <= 0) {
+    this.errorMessage = 'Valid brutto weight is required';
+    return false;
+  }
+
+  if (!this.currentProduct.unitNettoWeightKg || this.currentProduct.unitNettoWeightKg <= 0) {
+    this.errorMessage = 'Valid netto weight is required';
+    return false;
+  }
+
+  return true;
+}
   // ============================================
   // HELPERS
   // ============================================
-  getEmptyProduct(): ProductAdded {
-    return {
-      name: '',
-      volumeMl: 0,
-      volumeUnit: 'ml',
-      hsCode: '',
-      hsDescription: '',
-      unitBruttoWeightKg: 0,
-      unitNettoWeightKg: 0,
-      gtin: '',
-      countryOfOrigin: 'DE'
-    };
-  }
+ getEmptyProduct(): ProductAdded {
+  return {
+    name: '',
+    frenchName: '',          // ✅ NEW
+    volumeMl: 0,
+    volumeUnit: 'ml',
+    hsCode: '',
+    hsDescription: '',
+    unitBruttoWeightKg: 0,
+    unitNettoWeightKg: 0,
+    gtin: '',
+    countryOfOrigin: 'DE'
+  };
+}
 
   toggleStatistics() {
     this.showStatistics = !this.showStatistics;

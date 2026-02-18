@@ -121,6 +121,12 @@
               {{ sortOrder === 'asc' ? '↑' : '↓' }}
             </span>
           </th>
+          <th class="col-name sortable" (click)="onSortChange('frenchName')">
+  French Name
+  <span class="sort-icon" *ngIf="sortBy === 'frenchName'">
+    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+  </span>
+</th>
           <th class="col-volume sortable" (click)="onSortChange('volumeMl')">
             Volume
             <span class="sort-icon" *ngIf="sortBy === 'volumeMl'">
@@ -162,6 +168,11 @@
               <small *ngIf="product.hsDescription">{{ product.hsDescription }}</small>
             </div>
           </td>
+          <td class="col-name">
+  <div class="product-name-cell">
+    <span>{{ product.frenchName }}</span>
+  </div>
+</td>
           <td class="col-volume">
             {{ product.volumeMl }} {{ product.volumeUnit || 'ml' }}
           </td>
@@ -240,6 +251,7 @@
       placeholder="Start typing: Balea..." 
       required 
     />
+
     <span *ngIf="isSearchingProducts" class="search-indicator">🔍</span>
     <span *ngIf="isCheckingProduct" class="search-indicator">🔄</span>
 
@@ -260,6 +272,20 @@
   <div *ngIf="productExistsWarning" class="validation-warning">
     {{ productExistsWarning }}
   </div>
+</div>
+    <div class="form-group">
+  <label>
+    French Name *
+    <span class="hint">🇫🇷 Nom du produit en français</span>
+  </label>
+  <input
+    type="text"
+    [(ngModel)]="currentProduct.frenchName"
+    name="frenchName"
+    class="form-input"
+    placeholder="Ex: Crème de nuit Balea..."
+    required
+  />
 </div>
           <!-- ROW 2: HS Code + HS Description -->
           <div class="form-row">

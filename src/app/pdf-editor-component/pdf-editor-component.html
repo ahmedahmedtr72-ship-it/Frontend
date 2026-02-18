@@ -549,7 +549,16 @@
       </div>
     </div>
 
-    <!-- Download Buttons Section -->
+
+
+  <div class="info-message" style="margin-top: 10px; background: #eef2ff;">
+    <span class="info-icon">💡</span>
+    <span>
+      Si le nom français n'existe pas en base, il sera traduit automatiquement
+      et <strong>sauvegardé</strong> pour les prochaines utilisations.
+    </span>
+  </div>
+     <!-- Download Buttons Section -->
     <div class="download-section">
       <h4>📄 Télécharger les documents</h4>
       
@@ -585,6 +594,42 @@
             </button>
           </div>
         </div>
+       <p style="margin: 5px ; font-family: 'Times New Roman', Times, serif ; font-weight: bold;"> --------- FR --------- </p>  
+          <div class="button-section">
+     <div class="button-row">
+
+      <button
+        class="btn btn-preview btn-delivery"
+        style="background: #3b5bdb; border-color: #3b5bdb;"
+        (click)="previewFrenchDelivery()"
+        [disabled]="generatingFrenchDelivery"
+      >
+        <span *ngIf="!generatingFrenchDelivery">🇫🇷 Bon de Livraison</span>
+        <span *ngIf="generatingFrenchDelivery">⏳ Traduction...</span>
+      </button>
+
+      <button
+        class="btn btn-preview btn-invoice"
+        style="background: #1864ab; border-color: #1864ab;"
+        (click)="previewFrenchInvoice()"
+        [disabled]="generatingFrenchInvoice"
+      >
+        <span *ngIf="!generatingFrenchInvoice">🇫🇷 Facture</span>
+        <span *ngIf="generatingFrenchInvoice">⏳ Traduction...</span>
+      </button>
+
+      <button
+        class="btn btn-preview btn-both"
+        style="background: #0b3d91; border-color: #0b3d91;"
+        (click)="previewFrenchBoth()"
+        [disabled]="generatingFrenchDelivery || generatingFrenchInvoice"
+      >
+        <span *ngIf="!generatingFrenchDelivery && !generatingFrenchInvoice">🇫🇷 Les deux</span>
+        <span *ngIf="generatingFrenchDelivery || generatingFrenchInvoice">⏳ Traduction...</span>
+      </button>
+
+    </div>
+  </div>
       </div>
 
       <!-- Modified Documents (if changes exist) -->
@@ -795,3 +840,4 @@
     </div>
   </div>
 </div>
+  

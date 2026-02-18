@@ -810,4 +810,62 @@ export class PdfEditorComponent {
   get remainingProducts(): number {
     return this.totalMissingProducts - this.currentMissingIndex;
   }
+  generatingFrenchDelivery: boolean = false;
+generatingFrenchInvoice: boolean = false;
+
+// ✅ Main French PDF generator
+generateFrenchPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = true) {
+  if (type === 'delivery' || type === 'both') this.generatingFrenchDelivery = true;
+  if (type === 'invoice'  || type === 'both') this.generatingFrenchInvoice  = true;
+
+  this.errorMessage = '';
+  this.successMessage = '🇫🇷 Traduction en cours...';
+
+  const dataToSend = {
+    data: {
+      products: useOriginal ? this.originalProducts : this.products,
+      total: this.total,
+      totalNetto: this.totalNetto,
+      totalBrutto: this.totalBrutto
+    },
+    type,
+    metadata: this.metadata
+  };
+
+  this.apiService.generateFrenchPDF(dataToSend).subscribe({
+    next: (response) => {
+      if (response.success) {
+        if (response.deliveryNote) {
+          const url = this.apiService.getDownloadUrl(response.deliveryNote);
+          this.openInNewTab(url, 'Bon de Livraison FR');
+        }
+        if (response.invoice) {
+          const url = this.apiService.getDownloadUrl(response.invoice);
+          setTimeout(() => this.openInNewTab(url, 'Facture FR'), 200);
+        }
+
+        const label = type === 'both' ? 'Facture + Bon de livraison' :
+                      type === 'invoice' ? 'Facture' : 'Bon de livraison';
+        this.successMessage = `🇫🇷 ${label} en français généré(s) !`;
+      } else {
+        this.errorMessage = 'Erreur lors de la génération FR';
+      }
+      this.generatingFrenchDelivery = false;
+      this.generatingFrenchInvoice  = false;
+      this.cd.detectChanges();
+    },
+    error: (error) => {
+      this.generatingFrenchDelivery = false;
+      this.generatingFrenchInvoice  = false;
+      this.errorMessage = error.error?.error || 'Erreur génération FR';
+      this.successMessage = '';
+      console.error('French PDF error:', error);
+      this.cd.detectChanges();
+    }
+  });
+}
+
+previewFrenchInvoice()  { this.generateFrenchPDF('invoice',  true); }
+previewFrenchDelivery() { this.generateFrenchPDF('delivery', true); }
+previewFrenchBoth()     { this.generateFrenchPDF('both',     true); }
 }
