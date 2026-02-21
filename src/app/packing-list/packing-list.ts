@@ -1,455 +1,456 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService } from '../api.service';
 import { PackingListService } from '../packing-list';
+ 
+// ── Interfaces ───────────────────────────────────────────────────────────────
 
-interface PackingListItem {
-  _id: string;
-  sendungNum: string;
-  uploadedPdfFilename?: string;
-  products: any[];
-  quantities: number[];
-  totalBrutto: number;
-  totalNetto: number;
-  createdAt: string;
+interface StockProduct {
+    productId: string;
+    name: string;
+    frenchName: string;
+    volumeMl: number;
+    volumeUnit: string;
+    unitBruttoWeightKg: number;
+    unitNettoWeightKg: number;
+    gtin: string | null;
+    hsCode: string | null;
+    countryOfOrigin: string;
+    totalStock: number;
+    reservedStock: number;   // qty used in OTHER sendungen
+    availableStock: number;  // totalStock - reservedStock (excluding current edit)
 }
 
-interface MatchedProduct {
-  productId: string;
-  name: string;
-  volumeMl: number;
-  volumeUnit: string;
-  unitBruttoWeightKg: number;
-  unitNettoWeightKg: number;
-  gtin?: string;
-  hsCode?: string;
-  quantity: number;
-  selected?: boolean;
+interface CartItem {
+    productId: string;
+    name: string;
+    frenchName: string;
+    volumeMl: number;
+    volumeUnit: string;
+    unitBruttoWeightKg: number;
+    unitNettoWeightKg: number;
+    gtin: string | null;
+    quantity: number;
 }
+
+interface PackingListRecord {
+    _id: string;
+    sendungNum: string;
+    uploadedPdfFilename?: string;
+    products: any[];
+    quantities: number[];
+    totalBrutto: number;
+    totalNetto: number;
+    createdAt: string;
+    selected?: boolean;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 @Component({
-  selector: 'app-packing-list',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: './packing-list.html',
-  styleUrl: './packing-list.css'
+    selector: 'app-packing-list',
+    standalone: true,
+    imports: [CommonModule, FormsModule],
+    templateUrl: './packing-list.html',
+    styleUrl: './packing-list.css'
 })
 export class PackingList implements OnInit {
-  // State
-  packingLists: PackingListItem[] = [];
-  
-  // Form - Step 1: Sendung Number
-  sendungNum: string = '';
-  
-  // Form - Step 2: Choice (PDF or Manual)
-  selectionMode: 'pdf' | 'manual' | null = null;
-  
-  // Form - PDF Mode
-  selectedPdfFile: File | null = null;
-  uploadedPdfFilename: string = '';
-  parsedProducts: MatchedProduct[] = [];
-  notFoundProducts: any[] = [];
-  
-  // Form - Manual Mode
-  productSearchQuery: string = '';
-  productSearchResults: MatchedProduct[] = [];
-  showProductSearch: boolean = false;
-  manuallySelectedProducts: MatchedProduct[] = [];
-  
-  // Loading & Messages
-  isLoading: boolean = false;
-  isParsingPdf: boolean = false;
-  errorMessage: string = '';
-  successMessage: string = '';
-  
-  // Modal
-  showCreateModal: boolean = false;
-  currentStep: number = 1;
 
-  constructor(
-    private apiService: PackingListService,
-    private cd: ChangeDetectorRef  // ✅ Add ChangeDetectorRef
-  ) {}
+    // ── State ──────────────────────────────────────────────────────────────
+    packingLists: PackingListRecord[] = [];
 
-  ngOnInit() {
-    this.loadPackingLists();
+    // All products with stock (loaded from backend)
+    allStockProducts: StockProduct[] = [];
+    // Filtered list shown in the modal (search subset of allStockProducts)
+    filteredStockProducts: StockProduct[] = [];
+
+    // Current sendung being built
+    currentSendungNum: string  = '';
+    currentItems: CartItem[]   = [];   // the "cart"
+    productSearch: string      = '';
+    isEditMode: boolean        = false;
+    editingSendungId: string | null = null;
+
+    // UI flags
+    isLoading: boolean      = false;
+    isLoadingStock: boolean = false;
+    isSaving: boolean       = false;
+    isGenerating: boolean   = false;
+    showCreateModal: boolean = false;
+
+    // Messages
+    errorMessage: string   = '';
+    successMessage: string = '';
+    loadingMessage: string = 'Loading...';
+
+    constructor(
+        private svc: PackingListService,
+        private cd: ChangeDetectorRef
+    ) {}
+
+    ngOnInit() {
+        this.loadPackingLists();
+    }
+ addAll(p: StockProduct) {
+    const available = p.availableStock;
+    if (available <= 0) return;
+    const existing = this.currentItems.find(i => i.productId === p.productId);
+    if (existing) {
+      existing.quantity = available;
+    } else {
+      this.currentItems.push({
+        productId: p.productId,
+        name: p.name,
+        frenchName: p.frenchName,
+        volumeMl: p.volumeMl,
+        volumeUnit: p.volumeUnit,
+        unitBruttoWeightKg: p.unitBruttoWeightKg,
+        unitNettoWeightKg: p.unitNettoWeightKg,
+        gtin: p.gtin,
+        quantity: available
+      });
+    }
+    this.cd.detectChanges();
   }
+    // ── Load packing lists ─────────────────────────────────────────────────
 
-  // ============================================
-  // LOAD DATA
-  // ============================================
-  loadPackingLists() {
-    this.isLoading = true;
-    this.apiService.getAllPackingLists().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.packingLists = response.data;
-        }
-        this.isLoading = false;
+    loadPackingLists() {
+        this.isLoading = true;
+        this.loadingMessage = 'Loading packing lists...';
+        this.svc.getAllPackingLists().subscribe({
+            next: (r) => {
+                this.packingLists = (r.data || []).map((pl: PackingListRecord) => ({ ...pl, selected: false }));
+                this.isLoading = false;
+                this.cd.detectChanges();
+            },
+            error: () => {
+                this.errorMessage = 'Error loading packing lists';
+                this.isLoading = false;
+                this.cd.detectChanges();
+            }
+        });
+    }
+
+    // ── Load stock products (for modal) ────────────────────────────────────
+
+    loadStockProducts(excludeSendung?: string) {
+        this.isLoadingStock = true;
+        const qs = excludeSendung ? `?excludeSendung=${encodeURIComponent(excludeSendung)}` : '';
+        this.svc.getProductsWithStock(qs).subscribe({
+            next: (r) => {
+                this.allStockProducts      = r.data || [];
+                this.filteredStockProducts = [...this.allStockProducts];
+                this.isLoadingStock = false;
+                this.cd.detectChanges();
+            },
+            error: () => {
+                this.errorMessage = 'Error loading stock';
+                this.isLoadingStock = false;
+                this.cd.detectChanges();
+            }
+        });
+    }
+
+    // ── Modal ──────────────────────────────────────────────────────────────
+
+    openCreateModal() {
+        this.resetForm();
+        this.showCreateModal = true;
+        this.loadStockProducts();
         this.cd.detectChanges();
-      },
-      error: (error) => {
-        this.errorMessage = 'Error loading packing lists';
-        this.isLoading = false;
-        console.error(error);
+    }
+
+    closeCreateModal() {
+        this.showCreateModal = false;
+        this.resetForm();
         this.cd.detectChanges();
-      }
-    });
-  }
-
-  // ============================================
-  // MODAL WORKFLOW
-  // ============================================
-  openCreateModal() {
-    this.showCreateModal = true;
-    this.currentStep = 1;
-    this.resetForm();
-    this.cd.detectChanges();
-  }
-
-  closeCreateModal() {
-    this.showCreateModal = false;
-    this.resetForm();
-    this.cd.detectChanges();
-  }
-
-  resetForm() {
-    this.sendungNum = '';
-    this.selectionMode = null;
-    this.selectedPdfFile = null;
-    this.uploadedPdfFilename = '';
-    this.parsedProducts = [];
-    this.notFoundProducts = [];
-    this.manuallySelectedProducts = [];
-    this.productSearchQuery = '';
-    this.productSearchResults = [];
-    this.errorMessage = '';
-    this.successMessage = '';
-    this.currentStep = 1;
-  }
-
-  // ============================================
-  // STEP 1: Enter Sendung Number
-  // ============================================
-  proceedToChoice() {
-    if (!this.sendungNum || this.sendungNum.trim().length < 3) {
-      this.errorMessage = 'Please enter a valid Sendung number';
-      this.cd.detectChanges();
-      return;
-    }
-    this.currentStep = 2;
-    this.errorMessage = '';
-    this.cd.detectChanges();
-  }
-
-  // ============================================
-  // STEP 2: Choose Selection Mode
-  // ============================================
-  selectMode(mode: 'pdf' | 'manual') {
-    this.selectionMode = mode;
-    this.currentStep = mode === 'pdf' ? 3 : 4;
-    this.cd.detectChanges();
-  }
-
-  // ============================================
-  // STEP 3: Upload PDF (if PDF mode selected)
-  // ============================================
-  onPdfFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-
-    const file = input.files[0];
-    if (file.type !== 'application/pdf') {
-      this.errorMessage = 'Please select a PDF file';
-      this.cd.detectChanges();
-      return;
     }
 
-    this.selectedPdfFile = file;
-    this.uploadedPdfFilename = file.name;
-    this.errorMessage = '';
-    this.cd.detectChanges();
-  }
-
-  uploadAndParsePdf() {
-    if (!this.selectedPdfFile) {
-      this.errorMessage = 'Please select a PDF file';
-      this.cd.detectChanges();
-      return;
+    resetForm() {
+        this.currentSendungNum    = '';
+        this.currentItems         = [];
+        this.productSearch        = '';
+        this.filteredStockProducts = [];
+        this.allStockProducts     = [];
+        this.isEditMode           = false;
+        this.editingSendungId     = null;
+        this.errorMessage         = '';
     }
 
-    this.isParsingPdf = true;
-    this.errorMessage = '';
-    this.cd.detectChanges();
+    // ── Search / filter ────────────────────────────────────────────────────
 
-    console.log('📄 Starting PDF upload and parsing...');
-
-    this.apiService.parsePdfForPacking(this.selectedPdfFile).subscribe({
-      next: (response) => {
-        console.log('✅ PDF Parse Response:', response);
-        
-        if (response.success) {
-          // ✅ Map and pre-select all found products
-          this.parsedProducts = response.data.matched.map((p: any) => ({
-            productId: p.productId,
-            name: p.name,
-            volumeMl: p.volumeMl,
-            volumeUnit: p.volumeUnit || 'ml',
-            unitBruttoWeightKg: p.unitBruttoWeightKg,
-            unitNettoWeightKg: p.unitNettoWeightKg,
-            gtin: p.gtin,
-            hsCode: p.hsCode,
-            quantity: p.quantity,
-            selected: true  // ✅ Pre-select all
-          }));
-          
-          this.notFoundProducts = response.data.notFound || [];
-          
-          console.log(`📦 Loaded ${this.parsedProducts.length} matched products`);
-          console.log(`⚠️  ${this.notFoundProducts.length} not found`);
-          
-          this.successMessage = `✅ ${response.message}`;
-          this.currentStep = 5;  // ✅ Move to review step
-          this.isParsingPdf = false;
-          
-          // ✅ Force change detection
-          this.cd.detectChanges();
-          
-          setTimeout(() => {
-            this.successMessage = '';
-            this.cd.detectChanges();
-          }, 3000);
+    filterProducts() {
+        const q = this.productSearch.toLowerCase().trim();
+        if (!q) {
+            this.filteredStockProducts = [...this.allStockProducts];
         } else {
-          this.errorMessage = 'Failed to parse PDF';
-          this.isParsingPdf = false;
-          this.cd.detectChanges();
+            this.filteredStockProducts = this.allStockProducts.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                (p.gtin && p.gtin.toLowerCase().includes(q))
+            );
         }
-      },
-      error: (error) => {
-        console.error('❌ PDF Parse Error:', error);
-        this.errorMessage = error.error?.error || 'Error parsing PDF';
-        this.isParsingPdf = false;
         this.cd.detectChanges();
-      }
-    });
-  }
-
-  // ============================================
-  // STEP 4: Manual Product Selection
-  // ============================================
-  onProductSearch() {
-    if (this.productSearchQuery.length < 2) {
-      this.productSearchResults = [];
-      this.showProductSearch = false;
-      this.cd.detectChanges();
-      return;
     }
 
-    this.apiService.searchProductsForPacking(this.productSearchQuery).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.productSearchResults = response.data;
-          this.showProductSearch = true;
-          this.cd.detectChanges();
-        }
-      },
-      error: (error) => {
-        console.error('Search error:', error);
-      }
-    });
-  }
+    clearSearch() {
+        this.productSearch         = '';
+        this.filteredStockProducts = [...this.allStockProducts];
+        this.cd.detectChanges();
+    }
 
-  selectProductManually(product: any) {
-    const exists = this.manuallySelectedProducts.find(p => p.productId === product._id);
-    if (exists) {
-      this.errorMessage = 'Product already added';
-      setTimeout(() => {
+    // ── Cart helpers ───────────────────────────────────────────────────────
+
+    /** Returns the quantity currently in cart for a given productId (0 if absent) */
+    getItemQty(productId: string): number {
+        return this.currentItems.find(i => i.productId === productId)?.quantity ?? 0;
+    }
+
+    increment(p: StockProduct) {
+        const currentQty = this.getItemQty(p.productId);
+        if (currentQty >= p.availableStock) return;  // can't exceed available
+
+        const existing = this.currentItems.find(i => i.productId === p.productId);
+        if (existing) {
+            existing.quantity++;
+        } else {
+            this.currentItems.push({
+                productId:          p.productId,
+                name:               p.name,
+                frenchName:         p.frenchName,
+                volumeMl:           p.volumeMl,
+                volumeUnit:         p.volumeUnit,
+                unitBruttoWeightKg: p.unitBruttoWeightKg,
+                unitNettoWeightKg:  p.unitNettoWeightKg,
+                gtin:               p.gtin,
+                quantity:           1
+            });
+        }
+        this.cd.detectChanges();
+    }
+
+    decrement(p: StockProduct) {
+        const existing = this.currentItems.find(i => i.productId === p.productId);
+        if (!existing) return;
+
+        if (existing.quantity > 1) {
+            existing.quantity--;
+        } else {
+            // Remove entirely when reaching 0
+            this.currentItems = this.currentItems.filter(i => i.productId !== p.productId);
+        }
+        this.cd.detectChanges();
+    }
+
+    removeItem(productId: string) {
+        this.currentItems = this.currentItems.filter(i => i.productId !== productId);
+        this.cd.detectChanges();
+    }
+
+    // ── Weight totals for the current cart ────────────────────────────────
+
+    get currentBrutto(): number {
+        return this.currentItems.reduce((s, i) => s + i.unitBruttoWeightKg * i.quantity, 0);
+    }
+
+    get currentNetto(): number {
+        return this.currentItems.reduce((s, i) => s + i.unitNettoWeightKg * i.quantity, 0);
+    }
+
+    // ── Save sendung ───────────────────────────────────────────────────────
+
+    saveSendung() {
+        if (!this.currentSendungNum.trim()) {
+            this.errorMessage = 'Please enter a sendung number';
+            this.cd.detectChanges();
+            return;
+        }
+        if (this.currentItems.length === 0) {
+            this.errorMessage = 'Please add at least one product';
+            this.cd.detectChanges();
+            return;
+        }
+
+        const payload = {
+            sendungNum: this.currentSendungNum.trim(),
+            productIds: this.currentItems.map(i => i.productId),
+            quantities: this.currentItems.map(i => i.quantity),
+        };
+
+        this.isSaving     = true;
         this.errorMessage = '';
+
+        const req$ = this.isEditMode && this.editingSendungId
+            ? this.svc.updatePackingList(this.editingSendungId, payload)
+            : this.svc.createPackingList(payload);
+
+        req$.subscribe({
+            next: (r) => {
+                if (r.success) {
+                    this.successMessage = `Sendung "${payload.sendungNum}" ${this.isEditMode ? 'updated' : 'saved'}`;
+                    this.closeCreateModal();
+                    this.loadPackingLists();
+                    setTimeout(() => { this.successMessage = ''; this.cd.detectChanges(); }, 3500);
+                } else {
+                    this.errorMessage = r.error || 'Save failed';
+                }
+                this.isSaving = false;
+                this.cd.detectChanges();
+            },
+            error: (e) => {
+                this.errorMessage = e.error?.error || 'Error saving sendung';
+                this.isSaving     = false;
+                this.cd.detectChanges();
+            }
+        });
+    }
+
+    // ── Edit sendung ───────────────────────────────────────────────────────
+
+    editSendung(pl: PackingListRecord) {
+        this.isEditMode       = true;
+        this.editingSendungId = pl._id;
+        this.currentSendungNum = pl.sendungNum;
+        this.currentItems     = [];
+
+        // Load stock excluding THIS sendung's reservations
+        this.isLoadingStock = true;
+        this.showCreateModal = true;
+        const qs = `?excludeSendung=${encodeURIComponent(pl.sendungNum)}`;
+
+        this.svc.getProductsWithStock(qs).subscribe({
+            next: (r) => {
+                this.allStockProducts      = r.data || [];
+                this.filteredStockProducts = [...this.allStockProducts];
+
+                // Pre-fill cart from existing packing list
+                pl.products.forEach((product: any, idx: number) => {
+                    const qty       = pl.quantities[idx] || 1;
+                    const productId = product._id || product.toString();
+
+                    // Find stock info (to get weight data)
+                    const stockProd = this.allStockProducts.find(s => s.productId === productId);
+
+                    this.currentItems.push({
+                        productId,
+                        name:               product.name               || stockProd?.name        || '',
+                        frenchName:         product.frenchName         || stockProd?.frenchName   || '',
+                        volumeMl:           product.volumeMl           ?? stockProd?.volumeMl     ?? 0,
+                        volumeUnit:         product.volumeUnit         || stockProd?.volumeUnit   || 'ml',
+                        unitBruttoWeightKg: product.unitBruttoWeightKg ?? stockProd?.unitBruttoWeightKg ?? 0,
+                        unitNettoWeightKg:  product.unitNettoWeightKg  ?? stockProd?.unitNettoWeightKg  ?? 0,
+                        gtin:               product.gtin               || stockProd?.gtin         || null,
+                        quantity: qty
+                    });
+                });
+
+                this.isLoadingStock = false;
+                this.cd.detectChanges();
+            },
+            error: () => {
+                this.errorMessage   = 'Error loading stock for edit';
+                this.isLoadingStock = false;
+                this.cd.detectChanges();
+            }
+        });
+
         this.cd.detectChanges();
-      }, 2000);
-      return;
     }
 
-    this.manuallySelectedProducts.push({
-      productId: product._id,
-      name: product.name,
-      volumeMl: product.volumeMl,
-      volumeUnit: product.volumeUnit,
-      unitBruttoWeightKg: product.unitBruttoWeightKg,
-      unitNettoWeightKg: product.unitNettoWeightKg,
-      gtin: product.gtin,
-      hsCode: product.hsCode,
-      quantity: 1,
-      selected: true
-    });
+    // ── Table selection ────────────────────────────────────────────────────
 
-    this.productSearchQuery = '';
-    this.productSearchResults = [];
-    this.showProductSearch = false;
-    this.cd.detectChanges();
-  }
-
-  removeManualProduct(index: number) {
-    this.manuallySelectedProducts.splice(index, 1);
-    this.cd.detectChanges();
-  }
-
-  proceedToReviewManual() {
-    if (this.manuallySelectedProducts.length === 0) {
-      this.errorMessage = 'Please select at least one product';
-      this.cd.detectChanges();
-      return;
-    }
-    this.currentStep = 5;
-    this.cd.detectChanges();
-  }
-
-  // ============================================
-  // STEP 5: Review & Finalize (both modes)
-  // ============================================
-  toggleProductSelection(product: MatchedProduct) {
-    product.selected = !product.selected;
-    this.cd.detectChanges();
-  }
-
-  selectAll() {
-    if (this.selectionMode === 'pdf') {
-      this.parsedProducts.forEach(p => p.selected = true);
-    } else {
-      this.manuallySelectedProducts.forEach(p => p.selected = true);
-    }
-    this.cd.detectChanges();
-  }
-
-  deselectAll() {
-    if (this.selectionMode === 'pdf') {
-      this.parsedProducts.forEach(p => p.selected = false);
-    } else {
-      this.manuallySelectedProducts.forEach(p => p.selected = false);
-    }
-    this.cd.detectChanges();
-  }
-
-  get currentProducts(): MatchedProduct[] {
-    return this.selectionMode === 'pdf' ? this.parsedProducts : this.manuallySelectedProducts;
-  }
-
-  // ============================================
-  // FINAL: Create Packing List
-  // ============================================
-  createPackingList() {
-    const selectedProducts = this.currentProducts.filter(p => p.selected);
-
-    if (selectedProducts.length === 0) {
-      this.errorMessage = 'Please select at least one product';
-      this.cd.detectChanges();
-      return;
+    get selectedLists(): PackingListRecord[] {
+        return this.packingLists.filter(pl => pl.selected);
     }
 
-    const productIds = selectedProducts.map(p => p.productId);
-    const quantities = selectedProducts.map(p => p.quantity);
+    get allSelected(): boolean {
+        return this.packingLists.length > 0 && this.packingLists.every(pl => pl.selected);
+    }
 
-    this.isLoading = true;
-    this.cd.detectChanges();
+    toggleSelectAll(event: Event) {
+        const checked = (event.target as HTMLInputElement).checked;
+        this.packingLists.forEach(pl => pl.selected = checked);
+        this.cd.detectChanges();
+    }
 
-    this.apiService.createPackingList({
-      sendungNum: this.sendungNum,
-      productIds,
-      quantities,
-      uploadedPdfFilename: this.selectionMode === 'pdf' ? this.uploadedPdfFilename : null
-    }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.successMessage = 'Packing list created successfully!';
-          this.closeCreateModal();
-          this.loadPackingLists();
-          setTimeout(() => {
-            this.successMessage = '';
+    // ── Combined PDF ───────────────────────────────────────────────────────
+
+    generateCombinedPdf() {
+        if (this.selectedLists.length === 0) {
+            this.errorMessage = 'Select at least one packing list';
             this.cd.detectChanges();
-          }, 3000);
+            return;
         }
-        this.isLoading = false;
-        this.cd.detectChanges();
-      },
-      error: (error) => {
-        this.errorMessage = error.error?.error || 'Error creating packing list';
-        this.isLoading = false;
-        console.error(error);
-        this.cd.detectChanges();
-      }
-    });
-  }
 
-  // ============================================
-  // GENERATE PDF
-  // ============================================
-  generatePdf(packingList: PackingListItem) {
-    this.apiService.generatePackingListPdf(packingList._id).subscribe({
-      next: (response) => {
-        if (response.success) {
-          const url = this.apiService.getDownloadUrl(response.url);
-          window.open(url, '_blank');
-          this.successMessage = 'PDF generated!';
-          setTimeout(() => {
-            this.successMessage = '';
-            this.cd.detectChanges();
-          }, 3000);
-        }
-      },
-      error: (error) => {
-        this.errorMessage = 'Error generating PDF';
-        console.error(error);
-        this.cd.detectChanges();
-      }
-    });
-  }
+        this.isGenerating   = true;
+        this.loadingMessage = `Generating combined PDF for ${this.selectedLists.length} sendungen and deducting stock...`;
+        this.errorMessage   = '';
 
-  // ============================================
-  // DELETE
-  // ============================================
-  deletePackingList(id: string) {
-    if (!confirm('Delete this packing list?')) return;
+        this.svc.generateCombinedPdf({ sendungIds: this.selectedLists.map(pl => pl._id) }).subscribe({
+            next: (r) => {
+                if (r.success) {
+                    window.open(this.svc.getDownloadUrl(r.url), '_blank');
+                    this.successMessage = `PDF generated. Stock deducted for ${this.selectedLists.length} sendung(en).`;
+                    this.packingLists.forEach(pl => pl.selected = false);
+                    this.loadPackingLists();
+                    setTimeout(() => { this.successMessage = ''; this.cd.detectChanges(); }, 5000);
+                } else {
+                    this.errorMessage = r.error || 'PDF generation failed';
+                }
+                this.isGenerating = false;
+                this.cd.detectChanges();
+            },
+            error: (e) => {
+                this.errorMessage = e.error?.error || 'Error generating PDF';
+                this.isGenerating = false;
+                this.cd.detectChanges();
+            }
+        });
+    }
 
-    this.apiService.deletePackingList(id).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.successMessage = 'Packing list deleted!';
-          this.loadPackingLists();
-          setTimeout(() => {
-            this.successMessage = '';
-            this.cd.detectChanges();
-          }, 3000);
-        }
-      },
-      error: (error) => {
-        this.errorMessage = 'Error deleting packing list';
-        console.error(error);
-        this.cd.detectChanges();
-      }
-    });
-  }
+    // ── Single PDF ─────────────────────────────────────────────────────────
 
-  // ============================================
-  // HELPERS
-  // ============================================
-  formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('fr-FR');
-  }
+    generateSinglePdf(pl: PackingListRecord) {
+        this.svc.generatePackingListPdf(pl._id).subscribe({
+            next: (r) => {
+                if (r.success) window.open(this.svc.getDownloadUrl(r.url), '_blank');
+            },
+            error: () => {
+                this.errorMessage = 'Error generating PDF';
+                this.cd.detectChanges();
+            }
+        });
+    }
 
-  getTotalBrutto(): number {
-    return this.currentProducts
-      .filter(p => p.selected)
-      .reduce((sum, p) => sum + (p.unitBruttoWeightKg * p.quantity), 0);
-  }
+    // ── Delete ─────────────────────────────────────────────────────────────
 
-  getTotalNetto(): number {
-    return this.currentProducts
-      .filter(p => p.selected)
-      .reduce((sum, p) => sum + (p.unitNettoWeightKg * p.quantity), 0);
-  }
+    deletePackingList(id: string) {
+        if (!confirm('Delete this packing list? Stock will NOT be restored.')) return;
+        this.svc.deletePackingList(id).subscribe({
+            next: (r) => {
+                if (r.success) {
+                    this.successMessage = 'Deleted';
+                    this.loadPackingLists();
+                    setTimeout(() => { this.successMessage = ''; this.cd.detectChanges(); }, 3000);
+                }
+            },
+            error: () => {
+                this.errorMessage = 'Error deleting';
+                this.cd.detectChanges();
+            }
+        });
+    }
 
-  get selectedProductsCount(): number {
-    return this.currentProducts.filter(p => p.selected).length;
-  }
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    formatDate(d: string): string {
+        return new Date(d).toLocaleDateString('fr-FR');
+    }
+
+    get grandTotalBrutto(): number {
+        return this.packingLists.reduce((s, pl) => s + (pl.totalBrutto || 0), 0);
+    }
+
+    get grandTotalNetto(): number {
+        return this.packingLists.reduce((s, pl) => s + (pl.totalNetto || 0), 0);
+    }
 }

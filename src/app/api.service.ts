@@ -5,7 +5,27 @@ import { catchError, finalize, Observable, tap, throwError, timeout } from 'rxjs
 import { ParseResponse } from './modals/ParseResponse';
 import { GenerateResponse } from './modals/GenerateResponse ';
 import { InvoiceData } from './modals/InvoiceData';
+export interface ExcelMetadata {
+  dispatchNumber?       : string;
+  generationDate?       : string;
+  dispatchDate?         : string;
+  transportType?        : string;
+  fromLocation?         : string;
+  toLocation?           : string;
+  deliveryTerms?        : string;
+  paymentTerms?         : string;
+  numberOfCartons?      : number;
+  numberOfPallets?      : number;
+  showPallets?          : boolean;
+  packingMateriel?      : number;
+  totalWeightWithPacking?: number;
+}
 
+export interface ExcelExportResponse {
+  success  : boolean;
+  file     : string;   // e.g. "/outputs/export-202508TN002.xlsx"
+  fileName : string;   // e.g. "export-202508TN002.xlsx"
+}
 @Injectable({
   providedIn: 'root'
 })
@@ -21,6 +41,9 @@ export class ApiService {
     formData.append('file', file);
     return this.http.post<ParseResponse>(`${this.baseUrl}/parse`, formData);
   }
+  generatePdfNoCountry(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/pdf/generate-no-country`, payload);
+}
 generateFrenchPDF(body: any): Observable<any> {
   return this.http.post(`${this.baseUrl}/pdf/generate-french`, body);
 }
@@ -28,7 +51,7 @@ generateFrenchPDF(body: any): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/parse-multiple`, formData);
   }
 
-  generatePDF(data: InvoiceData): Observable<any> { 
+  generatePDF(data: any): Observable<any> { 
     return this.http.post<any>(`${this.baseUrl}/generate`, data);
   }
 
@@ -243,4 +266,44 @@ checkProductExists(name: string, volumeMl: number, volumeUnit: string): Observab
   }): Observable<any> {
     return this.http.post(`${this.baseUrl}/addedProds/smart-create`, product);
   }
+
+
+  exportToExcel(data: InvoiceData, metadata: ExcelMetadata = {}): Observable<ExcelExportResponse> {
+    console.log('📊 ApiService: Exporting to Excel');
+    return this.http.post<ExcelExportResponse>(
+      `${this.baseUrl}/export-excel`,
+      { data, metadata }
+    ).pipe(
+      tap({
+        next: (res) => console.log('✅ Excel export ready:', res.file),
+        error: (err) => console.error('❌ Excel export error:', err)
+      }),
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Excel export failed';
+        if (error.status === 0)   errorMessage = 'Cannot reach server';
+        if (error.status === 400) errorMessage = 'Invalid data provided';
+        if (error.status === 500) errorMessage = 'Server error during export';
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  /**
+   * Export and immediately trigger browser download.
+   * Convenience wrapper around exportToExcel().
+   */
+  exportToExcelAndDownload(data: InvoiceData, metadata: ExcelMetadata = {}): void {
+    this.exportToExcel(data, metadata).subscribe({
+      next: (res) => {
+        const url = this.getDownloadUrl(res.file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.fileName;
+        a.click();
+      },
+      error: (err) => console.error('Download failed:', err.message)
+    });
+  }
+
+  
 }

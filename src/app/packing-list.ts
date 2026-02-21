@@ -10,45 +10,65 @@ export class PackingListService {
 
   constructor(private http: HttpClient) {}
 
-  // Parse PDF for packing list
-  parsePdfForPacking(file: File): Observable<any> {
-    const formData = new FormData();
-    formData.append('pdf', file);
-    return this.http.post(`${this.baseUrl}/packing-lists/parse-pdf`, formData);
-  }
+     getProductsWithStock(queryString: string = ''): Observable<any> {
+        return this.http.get(`${this.baseUrl}/packing-list/stock-products${queryString}`);
+    }
 
-  // Search products for packing
-  searchProductsForPacking(query: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/packing-lists/search-products?q=${query}`);
-  }
+    // ── CRUD ──────────────────────────────────────────────────────────────
+    getAllPackingLists(): Observable<any> {
+        return this.http.get(`${this.baseUrl}/packing-list`);
+    }
 
-  // Create packing list
-  createPackingList(data: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/packing-lists`, data);
-  }
+    getPackingListById(id: string): Observable<any> {
+        return this.http.get(`${this.baseUrl}/packing-list/${id}`);
+    }
 
-  // Get all packing lists
-  getAllPackingLists(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/packing-lists`);
-  }
+    createPackingList(payload: {
+        sendungNum: string;
+        productIds: string[];
+        quantities: number[];
+        uploadedPdfFilename?: string | null;
+    }): Observable<any> {
+        return this.http.post(`${this.baseUrl}/packing-list`, payload);
+    }
 
-  // Get single packing list
-  getPackingListById(id: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/packing-lists/${id}`);
-  }
+    updatePackingList(id: string, payload: {
+        sendungNum: string;
+        productIds: string[];
+        quantities: number[];
+    }): Observable<any> {
+        return this.http.put(`${this.baseUrl}/packing-list/${id}`, payload);
+    }
 
-  // Generate PDF
-  generatePackingListPdf(id: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/packing-lists/${id}/pdf`);
-  }
+    deletePackingList(id: string): Observable<any> {
+        return this.http.delete(`${this.baseUrl}/packing-list/${id}`);
+    }
 
-  // Delete packing list
-  deletePackingList(id: string): Observable<any> {
-    return this.http.delete(`${this.baseUrl}/packing-lists/${id}`);
-  }
+    // ── PDF Generation ────────────────────────────────────────────────────
 
-  // Get download URL (same as ApiService)
-  getDownloadUrl(relativePath: string): string {
-    return `http://192.168.1.81:3000${relativePath}`;
-  }
+    /** Single packing list PDF (does NOT deduct stock) */
+    generatePackingListPdf(id: string): Observable<any> {
+        return this.http.post(`${this.baseUrl}/packing-list/${id}/pdf`, {});
+    }
+
+    /** Combined PDF for multiple sendungen (DEDUCTS STOCK) */
+    generateCombinedPdf(payload: { sendungIds: string[] }): Observable<any> {
+        return this.http.post(`${this.baseUrl}/packing-list/combined-pdf`, payload);
+    }
+
+    // ── Parse PDF ─────────────────────────────────────────────────────────
+    parsePdfForPacking(file: File): Observable<any> {
+        const form = new FormData();
+        form.append('pdf', file);
+        return this.http.post(`${this.baseUrl}/packing-list/parse-pdf`, form);
+    }
+
+    searchProductsForPacking(q: string): Observable<any> {
+        return this.http.get(`${this.baseUrl}/packing-list/search-products?q=${encodeURIComponent(q)}`);
+    }
+
+    // ── URL Helper ────────────────────────────────────────────────────────
+    getDownloadUrl(relativePath: string): string {
+        return `${this.baseUrl.replace('/api', '')}${relativePath}`;
+    }
 }

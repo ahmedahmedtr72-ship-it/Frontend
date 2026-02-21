@@ -84,6 +84,8 @@ export class PdfEditorComponent {
     dispatchDate: new Date().toISOString().split('T')[0],
     generationDate: new Date().toISOString().split('T')[0],
     numberOfCartons: 0,
+   totalWeightWithPacking: 0,  // user enters the scale reading
+
     numberOfPallets: 1,
     showPallets: true,
     transportType: 'Truck',
@@ -573,72 +575,7 @@ export class PdfEditorComponent {
   // ============================================
   // PDF GENERATION
   // ============================================
-  generateAndOpenPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = false, openInNewTab: boolean = true) {
-    if (type === 'delivery' || type === 'both') {
-      this.generatingDelivery = true;
-    }
-    if (type === 'invoice' || type === 'both') {
-      this.generatingInvoice = true;
-    }
-    
-    this.errorMessage = '';
-
-    const dataToSend: any = {
-      data: {
-        products: useOriginal ? this.originalProducts : this.products,
-        total: this.total,
-        totalNetto: this.totalNetto,
-        totalBrutto: this.totalBrutto
-      },
-      type: type,
-      metadata: this.metadata
-    };
-
-    this.apiService.generatePDF(dataToSend).subscribe({
-      next: (response) => {
-        if (response.success) {
-          if (response.deliveryNote) {
-            const deliveryUrl = this.apiService.getDownloadUrl(response.deliveryNote);
-            if (openInNewTab) {
-              this.openInNewTab(deliveryUrl, 'Delivery Note');
-            } else {
-              this.downloadFile(deliveryUrl, 'delivery-note');
-            }
-          }
-          
-          if (response.invoice) {
-            const invoiceUrl = this.apiService.getDownloadUrl(response.invoice);
-            if (openInNewTab) {
-              setTimeout(() => {
-                this.openInNewTab(invoiceUrl, 'Invoice');
-              }, 200);
-            } else {
-              this.downloadFile(invoiceUrl, 'invoice');
-            }
-          }
-          
-          const docType = type === 'both' ? 'Delivery Note et Invoice' : 
-                         type === 'delivery' ? 'Delivery Note' : 'Invoice';
-          const action = openInNewTab ? 'ouvert(s) dans un nouvel onglet' : 'téléchargé(s)';
-          this.successMessage = `${docType} généré(s) et ${action} avec succès!`;
-        } else {
-          this.errorMessage = 'Erreur lors de la génération du PDF';
-        }
-        
-        this.generatingDelivery = false;
-        this.generatingInvoice = false;
-        this.cd.detectChanges();
-      },
-      error: (error) => {
-        this.generatingDelivery = false;
-        this.generatingInvoice = false;
-        this.errorMessage = error.error?.error || 'Erreur lors de la génération du PDF';
-        console.error('Generation error:', error);
-        this.cd.detectChanges();
-      }
-    });
-  }
-
+ 
   // ============================================
   // INGREDIENT SHEETS
   // ============================================
@@ -814,12 +751,100 @@ export class PdfEditorComponent {
 generatingFrenchInvoice: boolean = false;
 
 // ✅ Main French PDF generator
+generateAndOpenPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = false, openInNewTab: boolean = true) {
+  if (type === 'delivery' || type === 'both') this.generatingDelivery = true;
+  if (type === 'invoice'  || type === 'both') this.generatingInvoice  = true;
+
+  this.errorMessage = '';
+
+  // ✅ Only ONE pre-opened window per user gesture
+  const preOpenedWindow = openInNewTab ? window.open('', '_blank') : null;
+
+  const dataToSend = {
+    data: {
+      products: useOriginal ? this.originalProducts : this.products,
+      total: this.total,
+      totalNetto: this.totalNetto,
+      totalBrutto: this.totalBrutto
+    },
+    type,
+    metadata: this.metadata
+  };
+
+  this.apiService.generatePDF(dataToSend).subscribe({
+    next: (response) => {
+      if (response.success) {
+        const urls: { url: string; filename: string }[] = [];
+
+        if (response.deliveryNote)
+          urls.push({ url: this.apiService.getDownloadUrl(response.deliveryNote), filename: 'delivery-note' });
+        if (response.invoice)
+          urls.push({ url: this.apiService.getDownloadUrl(response.invoice), filename: 'invoice' });
+
+        if (openInNewTab) {
+          // First → pre-opened window
+          if (urls[0] && preOpenedWindow) {
+            preOpenedWindow.location.href = urls[0].url;
+          }
+          // Second → anchor trick (avoids popup blocker)
+          if (urls[1]) {
+            setTimeout(() => {
+              const a = document.createElement('a');
+              a.href = urls[1].url;
+              a.target = '_blank';
+              a.rel = 'noopener';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }, 300);
+          }
+        } else {
+          urls.forEach(({ url, filename }) => this.downloadFile(url, filename));
+        }
+
+        const docType = type === 'both' ? 'Delivery Note et Invoice' :
+                        type === 'delivery' ? 'Delivery Note' : 'Invoice';
+        this.successMessage = `${docType} généré(s) avec succès!`;
+      } else {
+        this.errorMessage = 'Erreur lors de la génération du PDF';
+        preOpenedWindow?.close();
+      }
+
+      this.generatingDelivery = false;
+      this.generatingInvoice  = false;
+      this.cd.detectChanges();
+    },
+    error: (error) => {
+      this.generatingDelivery = false;
+      this.generatingInvoice  = false;
+      this.errorMessage = error.error?.error || 'Erreur lors de la génération du PDF';
+      preOpenedWindow?.close();
+      console.error('Generation error:', error);
+      this.cd.detectChanges();
+    }
+  });
+}
+
+// ============================================
+// FRENCH PDF
+// ============================================
 generateFrenchPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = true) {
   if (type === 'delivery' || type === 'both') this.generatingFrenchDelivery = true;
   if (type === 'invoice'  || type === 'both') this.generatingFrenchInvoice  = true;
 
   this.errorMessage = '';
   this.successMessage = '🇫🇷 Traduction en cours...';
+
+  // ✅ Pre-open windows BEFORE async call
+  let deliveryWindow: Window | null = null;
+  let invoiceWindow: Window | null = null;
+
+  if (type === 'delivery' || type === 'both') {
+    deliveryWindow = window.open('', '_blank');
+  }
+  if (type === 'invoice' || type === 'both') {
+    invoiceWindow = window.open('', '_blank');
+  }
 
   const dataToSend = {
     data: {
@@ -835,21 +860,22 @@ generateFrenchPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = 
   this.apiService.generateFrenchPDF(dataToSend).subscribe({
     next: (response) => {
       if (response.success) {
-        if (response.deliveryNote) {
-          const url = this.apiService.getDownloadUrl(response.deliveryNote);
-          this.openInNewTab(url, 'Bon de Livraison FR');
+        if (response.deliveryNote && deliveryWindow) {
+          deliveryWindow.location.href = this.apiService.getDownloadUrl(response.deliveryNote);
         }
-        if (response.invoice) {
-          const url = this.apiService.getDownloadUrl(response.invoice);
-          setTimeout(() => this.openInNewTab(url, 'Facture FR'), 200);
+        if (response.invoice && invoiceWindow) {
+          invoiceWindow.location.href = this.apiService.getDownloadUrl(response.invoice);
         }
 
         const label = type === 'both' ? 'Facture + Bon de livraison' :
                       type === 'invoice' ? 'Facture' : 'Bon de livraison';
-        this.successMessage = `🇫🇷 ${label} en français généré(s) !`;
+        this.successMessage = `🇫🇷 ${label} en français généré(s)!`;
       } else {
         this.errorMessage = 'Erreur lors de la génération FR';
+        deliveryWindow?.close();
+        invoiceWindow?.close();
       }
+
       this.generatingFrenchDelivery = false;
       this.generatingFrenchInvoice  = false;
       this.cd.detectChanges();
@@ -859,7 +885,76 @@ generateFrenchPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = 
       this.generatingFrenchInvoice  = false;
       this.errorMessage = error.error?.error || 'Erreur génération FR';
       this.successMessage = '';
+      deliveryWindow?.close();
+      invoiceWindow?.close();
       console.error('French PDF error:', error);
+      this.cd.detectChanges();
+    }
+  });
+}
+
+// ============================================
+// NO COUNTRY PDF
+// ============================================
+generateNoCountryPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = true) {
+  if (type === 'delivery' || type === 'both') this.generatingNcDelivery = true;
+  if (type === 'invoice'  || type === 'both') this.generatingNcInvoice  = true;
+
+  this.errorMessage   = '';
+  this.successMessage = '⏳ Generating (no country)...';
+
+  // ✅ Pre-open windows BEFORE async call
+  let deliveryWindow: Window | null = null;
+  let invoiceWindow: Window | null = null;
+
+  if (type === 'delivery' || type === 'both') {
+    deliveryWindow = window.open('', '_blank');
+  }
+  if (type === 'invoice' || type === 'both') {
+    invoiceWindow = window.open('', '_blank');
+  }
+
+  const dataToSend = {
+    data: {
+      products: useOriginal ? this.originalProducts : this.products,
+      total: this.total,
+      totalNetto: this.totalNetto,
+      totalBrutto: this.totalBrutto
+    },
+    type,
+    metadata: this.metadata
+  };
+
+  this.apiService.generatePdfNoCountry(dataToSend).subscribe({
+    next: (response) => {
+      if (response.success) {
+        if (response.deliveryNote && deliveryWindow) {
+          deliveryWindow.location.href = this.apiService.getDownloadUrl(response.deliveryNote);
+        }
+        if (response.invoice && invoiceWindow) {
+          invoiceWindow.location.href = this.apiService.getDownloadUrl(response.invoice);
+        }
+
+        const label = type === 'both' ? 'Delivery + Invoice' :
+                      type === 'delivery' ? 'Delivery Note' : 'Invoice';
+        this.successMessage = `✅ ${label} (no country) generated!`;
+      } else {
+        this.errorMessage = response.error || 'Generation failed';
+        deliveryWindow?.close();
+        invoiceWindow?.close();
+      }
+
+      this.generatingNcDelivery = false;
+      this.generatingNcInvoice  = false;
+      this.cd.detectChanges();
+    },
+    error: (err) => {
+      this.generatingNcDelivery = false;
+      this.generatingNcInvoice  = false;
+      this.errorMessage   = err.error?.error || 'Error generating no-country PDF';
+      this.successMessage = '';
+      deliveryWindow?.close();
+      invoiceWindow?.close();
       this.cd.detectChanges();
     }
   });
@@ -868,4 +963,50 @@ generateFrenchPDF(type: 'delivery' | 'invoice' | 'both', useOriginal: boolean = 
 previewFrenchInvoice()  { this.generateFrenchPDF('invoice',  true); }
 previewFrenchDelivery() { this.generateFrenchPDF('delivery', true); }
 previewFrenchBoth()     { this.generateFrenchPDF('both',     true); }
+
+generatingNcDelivery: boolean = false;
+generatingNcInvoice:  boolean = false;
+
+ 
+
+previewNcDelivery() { this.generateNoCountryPDF('delivery', true); }
+previewNcInvoice()  { this.generateNoCountryPDF('invoice',  true); }
+previewNcBoth()     { this.generateNoCountryPDF('both',     true); }
+
+generatingExcel: boolean = false;
+
+exportToExcel(useOriginal: boolean = true) {
+  this.generatingExcel = true;
+  this.errorMessage = '';
+
+  const dataToSend = {
+    data: {
+      products: useOriginal ? this.originalProducts : this.products,
+      total: this.total,
+      totalNetto: this.totalNetto,
+      totalBrutto: this.totalBrutto
+    },
+    metadata: this.metadata
+  };
+
+  this.apiService.exportToExcel(dataToSend.data, dataToSend.metadata).subscribe({
+    next: (res) => {
+      const url = this.apiService.getDownloadUrl(res.file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      this.successMessage = `✅ Excel exporté: ${res.fileName}`;
+      this.generatingExcel = false;
+      this.cd.detectChanges();
+    },
+    error: (err) => {
+      this.generatingExcel = false;
+      this.errorMessage = err.message || 'Erreur lors de l\'export Excel';
+      this.cd.detectChanges();
+    }
+  });
+}
 }

@@ -798,10 +798,10 @@ export class Bd implements OnDestroy {
     return false;
   }
 
-  if (!this.currentProduct.frenchName?.trim()) {   // ✅ NEW
-    this.errorMessage = 'French name is required';
-    return false;
-  }
+  // if (!this.currentProduct.frenchName?.trim()) {   // ✅ NEW
+  //   this.errorMessage = 'French name is required';
+  //   return false;
+  // }
 
   if (this.currentProduct.volumeUnit === 'St') {
     if (this.currentProduct.volumeMl === undefined || this.currentProduct.volumeMl === null) {

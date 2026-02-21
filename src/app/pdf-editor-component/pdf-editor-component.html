@@ -84,7 +84,14 @@
               </select>
             </div>
           </div>
-
+     <div class="form-row">
+  <div class="form-group">
+    <label>Poids total avec matériel d'emballage (Kg)</label>
+    <input type="number" [(ngModel)]="metadata.totalWeightWithPacking" 
+           name="totalWeightWithPacking" class="form-input" step="0.001" min="0" />
+    <small style="color:#666">Le matériel d'emballage sera calculé automatiquement</small>
+  </div>
+</div>
           <div class="form-row">
             <div class="form-group full-width">
               <label>De (From)</label>
@@ -551,14 +558,8 @@
 
 
 
-  <div class="info-message" style="margin-top: 10px; background: #eef2ff;">
-    <span class="info-icon">💡</span>
-    <span>
-      Si le nom français n'existe pas en base, il sera traduit automatiquement
-      et <strong>sauvegardé</strong> pour les prochaines utilisations.
-    </span>
-  </div>
-     <!-- Download Buttons Section -->
+
+
     <div class="download-section">
       <h4>📄 Télécharger les documents</h4>
       
@@ -594,8 +595,7 @@
             </button>
           </div>
         </div>
-       <p style="margin: 5px ; font-family: 'Times New Roman', Times, serif ; font-weight: bold;"> --------- FR --------- </p>  
-          <div class="button-section">
+           <div class="button-section">
      <div class="button-row">
 
       <button
@@ -629,6 +629,43 @@
       </button>
 
     </div>
+            <br /> 
+ 
+<div class="button-section">
+  <div class="button-row">
+
+    <button
+      class="btn btn-preview btn-delivery"
+      style="background: #495057; border-color: #495057;"
+      (click)="previewNcDelivery()"
+      [disabled]="generatingNcDelivery"
+    >
+      <span *ngIf="!generatingNcDelivery">📦 Delivery Note</span>
+      <span *ngIf="generatingNcDelivery">⏳ Generating...</span>
+    </button>
+
+    <button
+      class="btn btn-preview btn-invoice"
+      style="background: #343a40; border-color: #343a40;"
+      (click)="previewNcInvoice()"
+      [disabled]="generatingNcInvoice"
+    >
+      <span *ngIf="!generatingNcInvoice">🧾 Invoice</span>
+      <span *ngIf="generatingNcInvoice">⏳ Generating...</span>
+    </button>
+
+    <button
+      class="btn btn-preview btn-both"
+      style="background: #212529; border-color: #212529;"
+      (click)="previewNcBoth()"
+      [disabled]="generatingNcDelivery || generatingNcInvoice"
+    >
+      <span *ngIf="!generatingNcDelivery && !generatingNcInvoice">📋 Les deux</span>
+      <span *ngIf="generatingNcDelivery || generatingNcInvoice">⏳ Generating...</span>
+    </button>
+
+  </div>
+</div>
   </div>
       </div>
 
@@ -841,3 +878,33 @@
   </div>
 </div>
   
+<!-- Excel Export -->
+<div class="download-section" style="margin-top: 30px; border-top: 2px solid #e0e0e0; padding-top: 30px;">
+  <h4>📊 Export Excel</h4>
+  <p style="color: #666; font-size: 13px; margin-bottom: 12px;">
+    Exporte tous les produits, poids, prix, codes HS et informations logistiques dans un fichier Excel (.xlsx) — 3 feuilles : Produits, Résumé, Codes HS.
+  </p>
+
+  <div class="button-row">
+    <button
+      class="btn btn-preview"
+      style="background: #1d6f42; border-color: #1d6f42; color: white; min-width: 200px;"
+      (click)="exportToExcel(true)"
+      [disabled]="generatingExcel || products.length === 0"
+    >
+      <span *ngIf="!generatingExcel">📥 Exporter en Excel</span>
+      <span *ngIf="generatingExcel">⏳ Export en cours...</span>
+    </button>
+
+    <button
+      *ngIf="hasChanges"
+      class="btn btn-preview"
+      style="background: #0b5394; border-color: #0b5394; color: white; min-width: 220px;"
+      (click)="exportToExcel(false)"
+      [disabled]="generatingExcel"
+    >
+      <span *ngIf="!generatingExcel">📥 Exporter version modifiée</span>
+      <span *ngIf="generatingExcel">⏳ Export en cours...</span>
+    </button>
+  </div>
+</div>
