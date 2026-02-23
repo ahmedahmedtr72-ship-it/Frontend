@@ -275,56 +275,100 @@ export class PdfEditorComponent {
   // ============================================
   // ✅ ONE-BY-ONE MISSING PRODUCTS HANDLING
   // ============================================
+ loadNextMissingProduct() {
+  // ✅ No more saveAllMissingProducts() here — removed entirely
   
-  loadNextMissingProduct() {
-    if (this.currentMissingIndex < this.missingProductsQueue.length) {
-      const mp = this.missingProductsQueue[this.currentMissingIndex];
-      
-      this.currentMissingProduct = {
-        name: mp.name,
-        volumeMl: mp.volumeMl || 0,
-        volumeUnit: 'ml',
-        hsCode: '',
-        hsDescription: '',
-        unitBruttoWeightKg: 0,
-        unitNettoWeightKg: 0,
-        gtin: mp.gtin || '',
-        countryOfOrigin: mp.countryOfOrigin || 'DE',
-        quantity: mp.quantity || 1,
-        sourcePDF: mp.sourcePDF || ''
-      };
-      
-      this.cd.detectChanges();
-    } else {
-      // All products added - save to database
-      this.saveAllMissingProducts();
-    }
+  if (this.currentMissingIndex < this.missingProductsQueue.length) {
+    const mp = this.missingProductsQueue[this.currentMissingIndex];
+    
+    this.currentMissingProduct = {
+      name: mp.name,
+      volumeMl: mp.volumeMl || 0,
+      volumeUnit: 'ml',
+      hsCode: '',
+      hsDescription: '',
+      unitBruttoWeightKg: 0,
+      unitNettoWeightKg: 0,
+      gtin: mp.gtin || '',
+      countryOfOrigin: mp.countryOfOrigin || 'DE',
+      quantity: mp.quantity || 1,
+      sourcePDF: mp.sourcePDF || ''
+    };
+    
+    this.cd.detectChanges();
+  } else {
+    // ✅ All done — just finalize without another DB save
+    this.finalizeMissingProducts();
   }
-
+}
   saveCurrentAndNext() {
-    if (!this.validateCurrentProduct()) {
-      return;
+  if (!this.validateCurrentProduct()) {
+    return;
+  }
+
+  this.isLoading = true;
+  this.errorMessage = '';
+
+  // ✅ Save THIS ONE product immediately to DB
+  this.apiService.saveProductWeights([{ ...this.currentMissingProduct }]).subscribe({
+    next: (saveResponse) => {
+      this.isLoading = false;
+
+      if (saveResponse.success) {
+        // Add to completed list for weight recalculation later
+        this.completedMissingProducts.push({ ...this.currentMissingProduct });
+
+        const saved = saveResponse.savedCount;
+        const skipped = saveResponse.skippedCount;
+        this.successMessage = saved > 0
+          ? `✅ Produit ${this.currentMissingIndex + 1}/${this.missingProductsQueue.length} enregistré`
+          : `⚠️ Produit déjà existant (ignoré) — ${this.currentMissingIndex + 1}/${this.missingProductsQueue.length}`;
+        
+        setTimeout(() => { this.successMessage = ''; this.cd.detectChanges(); }, 2000);
+      } else {
+        this.errorMessage = 'Erreur lors de l\'enregistrement';
+      }
+
+      // Move to next regardless of skip/save
+      this.currentMissingIndex++;
+      this.loadNextMissingProduct();
+      this.cd.detectChanges();
+    },
+    error: (error) => {
+      this.isLoading = false;
+      this.errorMessage = 'Erreur réseau lors de l\'enregistrement';
+      console.error('Save single product error:', error);
+      this.cd.detectChanges();
     }
+  });
+}
+skipCurrentProduct() {
+  this.successMessage = `⏭️ Produit ignoré (${this.currentMissingIndex + 1}/${this.missingProductsQueue.length})`;
+  setTimeout(() => { this.successMessage = ''; this.cd.detectChanges(); }, 2000);
+  
+  this.currentMissingIndex++;
+  this.loadNextMissingProduct();
+}
 
-    // Add to completed list
-    this.completedMissingProducts.push({ ...this.currentMissingProduct });
-    
-    this.successMessage = `✅ Produit ${this.currentMissingIndex + 1}/${this.missingProductsQueue.length} enregistré`;
-    setTimeout(() => this.successMessage = '', 2000);
+private finalizeMissingProducts() {
+  this.recalculateProductWeights();
+  
+  this.loadParsedData({
+    data: this.parsedDataPending,
+    uploadedPDFs: this.uploadedPDFsInfo
+  });
 
-    // Move to next product
-    this.currentMissingIndex++;
-    this.loadNextMissingProduct();
-  }
+  this.showMissingProductsModal = false;
+  this.missingProductsQueue = [];
+  this.completedMissingProducts = [];
+  this.currentMissingProduct = null;
+  this.parsedDataPending = null;
 
-  skipCurrentProduct() {
-    this.successMessage = `⏭️ Produit ignoré`;
-    setTimeout(() => this.successMessage = '', 2000);
-    
-    this.currentMissingIndex++;
-    this.loadNextMissingProduct();
-  }
+  this.successMessage = `✅ Traitement terminé — données chargées`;
+  this.cd.detectChanges();
+}
 
+ 
   validateCurrentProduct(): boolean {
     if (!this.currentMissingProduct) return false;
 
@@ -363,48 +407,10 @@ export class PdfEditorComponent {
     return true;
   }
 
-  saveAllMissingProducts() {
-    if (this.completedMissingProducts.length === 0) {
-      this.errorMessage = 'Aucun produit à enregistrer';
-      return;
-    }
-
-    this.isLoading = true;
-
-    this.apiService.saveProductWeights(this.completedMissingProducts).subscribe({
-      next: (saveResponse) => {
-        if (saveResponse.success) {
-          this.successMessage = `✅ ${saveResponse.savedCount} produit(s) ajouté(s) à la base de données`;
-          
-          // Recalculate weights for all products
-          this.recalculateProductWeights();
-          
-          // Load parsed data and close modal
-          this.loadParsedData({
-            data: this.parsedDataPending,
-            uploadedPDFs: this.uploadedPDFsInfo
-          });
-          
-          this.showMissingProductsModal = false;
-          this.missingProductsQueue = [];
-          this.completedMissingProducts = [];
-          this.currentMissingProduct = null;
-          this.parsedDataPending = null;
-        } else {
-          this.errorMessage = 'Erreur lors de l\'enregistrement des produits';
-        }
-        this.isLoading = false;
-        this.cd.detectChanges();
-      },
-      error: (error) => {
-        this.isLoading = false;
-        this.errorMessage = 'Erreur lors de l\'enregistrement des produits';
-        console.error('Save error:', error);
-        this.cd.detectChanges();
-      }
-    });
-  }
-
+ saveAllMissingProducts() {
+  // This is now only a safety fallback, not part of the main flow
+  this.finalizeMissingProducts();
+}
   recalculateProductWeights() {
     if (!this.parsedDataPending || !this.parsedDataPending.products) return;
 

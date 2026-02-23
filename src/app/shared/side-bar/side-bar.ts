@@ -34,7 +34,7 @@ export class SidebarComponent {
         { label: 'Édition PDF', icon: 'documents', route: '/pdf-editor' },
         { label: 'Produits & Ref', icon: 'projects', route: '/products' },
         { label: 'factures générées', icon: 'projects', route: '/generated-invoices' },
-        { label: 'Nos packs', icon: 'pack', route: '/pack' },
+        { label: 'reports', icon: 'pack', route: '/pack' },
         { label: ' ingrédients', icon: 'pack', route: '/ingredients' },
         { label: 'Liste de colisage', icon: 'list', route: '/packinglist' },
         { label: 'Stock', icon: 'stock', route: '/stock' },
