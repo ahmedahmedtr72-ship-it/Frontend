@@ -84,15 +84,15 @@ export class PdfEditorComponent {
     dispatchDate: new Date().toISOString().split('T')[0],
     generationDate: new Date().toISOString().split('T')[0],
     numberOfCartons: 0,
+        showCartons: true,
    totalWeightWithPacking: 0,  // user enters the scale reading
-
     numberOfPallets: 1,
     showPallets: true,
     transportType: 'Truck',
-    fromLocation: 'DE - 67547 Worms - Hafenstraße 44',
-    toLocation: 'TN - 5000 Monastir - Rue Chahine 17 Cité Erina',
-    deliveryTerms: 'EXW Worms',
-    paymentTerms: 'transfer'
+    fromLocation: 'DE – 71701 Schwieberdingen – Markgröninger Str. 36',
+    toLocation: 'TN - 5000 Monastir - Rue Chahine 17 Cité Frina',
+    deliveryTerms: 'EXW Schwieberdingen',
+    paymentTerms: 'transfer within 90 days'
   };
 
   constructor(

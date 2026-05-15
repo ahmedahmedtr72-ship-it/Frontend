@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PackingListService {
-  private baseUrl = 'http://192.168.1.81:3000/api';
+  private baseUrl = environment.apiBaseUrl;
 
   constructor(private http: HttpClient) {}
 
@@ -69,6 +70,6 @@ export class PackingListService {
 
     // ── URL Helper ────────────────────────────────────────────────────────
     getDownloadUrl(relativePath: string): string {
-        return `${this.baseUrl.replace('/api', '')}${relativePath}`;
+        return `${environment.apiBaseUrl.replace(/\/api$/, '')}${relativePath}`;
     }
 }

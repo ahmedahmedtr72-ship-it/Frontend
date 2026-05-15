@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { AuthService } from '../../auth.service';
 
 interface NavItem {
   label: string;
@@ -25,6 +26,8 @@ interface NavSection {
 export class SidebarComponent {
   isCollapsed = false;
 
+  constructor(public auth: AuthService) {}
+
   navSections: NavSection[] = [
     {
       title: 'Principal',
@@ -34,7 +37,7 @@ export class SidebarComponent {
         { label: 'Édition PDF', icon: 'documents', route: '/pdf-editor' },
         { label: 'Produits & Ref', icon: 'projects', route: '/products' },
         { label: 'factures générées', icon: 'projects', route: '/generated-invoices' },
-        { label: 'reports', icon: 'pack', route: '/pack' },
+        { label: 'reports', icon: 'report', route: '/report' },
         { label: ' ingrédients', icon: 'pack', route: '/ingredients' },
         { label: 'Liste de colisage', icon: 'list', route: '/packinglist' },
         { label: 'Stock', icon: 'stock', route: '/stock' },

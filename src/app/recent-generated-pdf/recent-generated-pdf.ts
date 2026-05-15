@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { finalize, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 interface PdfFile {
   _id?: string;
@@ -35,7 +36,7 @@ export class RecentGeneratedPdfComponent implements OnInit {
   pdfFiles: PdfFile[] = [];
   loading: boolean = true;
   error: string | null = null;
-  private apiUrl = 'http://192.168.1.81:3000/api/outputs';
+  private apiUrl = `${environment.apiBaseUrl}/outputs`;
 
   constructor(
     private http: HttpClient,
@@ -97,7 +98,7 @@ export class RecentGeneratedPdfComponent implements OnInit {
     if (url.startsWith('http')) {
       return url;
     }
-    return `http://192.168.1.81:3000${url}`;
+    return `${environment.apiBaseUrl.replace(/\/api$/, '')}${url}`;
   }
 
   getFileDate(file: PdfFile): Date | null {

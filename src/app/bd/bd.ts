@@ -628,38 +628,43 @@ export class Bd implements OnDestroy {
     this.productExistsWarning = '';
   }
 
-  saveProduct() {
-    if (this.gtinError) {
-      this.errorMessage = 'Please fix GTIN error before saving';
-      setTimeout(() => {
-        this.errorMessage = '';
-        this.safeDetectChanges();
-      }, 3000);
-      return;
-    }
-
-    if (this.productExistsWarning && this.modalMode === 'create') {
-      this.errorMessage = 'Product already exists in database';
-      setTimeout(() => {
-        this.errorMessage = '';
-        this.safeDetectChanges();
-      }, 3000);
-      return;
-    }
-
-    if (!this.validateProduct()) {
-      return;
-    }
-
-    this.isLoading = true;
-    this.errorMessage = '';
-
-    if (this.modalMode === 'create') {
-      this.createProduct();
-    } else {
-      this.updateProduct();
-    }
+saveProduct() {
+  // Default volumeMl since field is hidden in template
+  if (!this.currentProduct.volumeMl || this.currentProduct.volumeMl <= 0) {
+    this.currentProduct.volumeMl = 1;
   }
+
+  if (this.gtinError) {
+    this.errorMessage = 'Please fix GTIN error before saving';
+    setTimeout(() => {
+      this.errorMessage = '';
+      this.safeDetectChanges();
+    }, 3000);
+    return;
+  }
+
+  if (this.productExistsWarning && this.modalMode === 'create') {
+    this.errorMessage = 'Product already exists in database';
+    setTimeout(() => {
+      this.errorMessage = '';
+      this.safeDetectChanges();
+    }, 3000);
+    return;
+  }
+
+  if (!this.validateProduct()) {
+    return;
+  }
+
+  this.isLoading = true;
+  this.errorMessage = '';
+
+  if (this.modalMode === 'create') {
+    this.createProduct();
+  } else {
+    this.updateProduct();
+  }
+}
 
   createProduct() {
     this.apiService.createProductAdded(this.currentProduct).pipe(takeUntil(this.destroy$)).subscribe({

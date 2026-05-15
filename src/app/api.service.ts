@@ -5,6 +5,8 @@ import { catchError, finalize, Observable, tap, throwError, timeout } from 'rxjs
 import { ParseResponse } from './modals/ParseResponse';
 import { GenerateResponse } from './modals/GenerateResponse ';
 import { InvoiceData } from './modals/InvoiceData';
+import { environment } from '../environments/environment';
+
 export interface ExcelMetadata {
   dispatchNumber?       : string;
   generationDate?       : string;
@@ -30,7 +32,7 @@ export interface ExcelExportResponse {
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://192.168.1.81:3000/api';
+  private baseUrl = environment.apiBaseUrl;
 
   constructor(private http: HttpClient) {}
 
@@ -116,7 +118,7 @@ generateFrenchPDF(body: any): Observable<any> {
   }
 
   getDownloadUrl(path: string): string {
-    return `http://192.168.1.81:3000${path}`;
+    return `${environment.apiBaseUrl.replace(/\/api$/, '')}${path}`;
   }
   checkGtinExists(gtin: string): Observable<any> {
   return this.http.get(`${this.baseUrl}/addedProds/check-gtin`, {

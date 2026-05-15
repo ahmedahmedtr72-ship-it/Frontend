@@ -58,6 +58,16 @@
               <input type="number" [(ngModel)]="metadata.numberOfCartons" name="numberOfCartons" class="form-input" min="1" required />
             </div>
             <div class="form-group">
+              <label>Afficher cartons  dans PDF</label>
+              <div class="toggle-container">
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="metadata.showCartons" name="showCartons" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-label">{{ metadata.showPallets ? 'Oui' : 'Non' }}</span>
+              </div>
+            </div>
+            <div class="form-group">
               <label>Nombre de palettes *</label>
               <input type="number" [(ngModel)]="metadata.numberOfPallets" name="numberOfPallets" class="form-input" min="1" required />
             </div>

@@ -1,0 +1,38 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="brand"></div>
+    <p class="subtitle">Connectez-vous pour accéder à l’application</p>
+
+    <form (ngSubmit)="submit()" #loginForm="ngForm">
+      <div class="field">
+        <label for="username">Nom d’utilisateur</label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          [(ngModel)]="username"
+          required
+          autocomplete="username"
+        />
+      </div>
+
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          [(ngModel)]="password"
+          required
+          autocomplete="current-password"
+        />
+      </div>
+
+      <button type="submit" [disabled]="isSubmitting || loginForm.invalid">
+        {{ isSubmitting ? 'Connexion...' : 'Se connecter' }}
+      </button>
+
+       <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+    </form>
+  </div>
+</div>

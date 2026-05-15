@@ -122,17 +122,17 @@
             </span>
           </th>
           <th class="col-name sortable" (click)="onSortChange('frenchName')">
-  French Name
-  <span class="sort-icon" *ngIf="sortBy === 'frenchName'">
-    {{ sortOrder === 'asc' ? '↑' : '↓' }}
-  </span>
-</th>
-          <th class="col-volume sortable" (click)="onSortChange('volumeMl')">
+            French Name
+            <span class="sort-icon" *ngIf="sortBy === 'frenchName'">
+              {{ sortOrder === 'asc' ? '↑' : '↓' }}
+            </span>
+          </th>
+          <!-- <th class="col-volume sortable" (click)="onSortChange('volumeMl')">
             Volume
             <span class="sort-icon" *ngIf="sortBy === 'volumeMl'">
               {{ sortOrder === 'asc' ? '↑' : '↓' }}
             </span>
-          </th>
+          </th> -->
           <th class="col-hs">HS Code</th>
           <th class="col-country">Country</th>
           <th class="col-weight">Brutto (kg)</th>
@@ -169,13 +169,13 @@
             </div>
           </td>
           <td class="col-name">
-  <div class="product-name-cell">
-    <span>{{ product.frenchName }}</span>
-  </div>
-</td>
-          <td class="col-volume">
-            {{ product.volumeMl }} {{ product.volumeUnit || 'ml' }}
+            <div class="product-name-cell">
+              <span>{{ product.frenchName }}</span>
+            </div>
           </td>
+          <!-- <td class="col-volume">
+            {{ product.volumeMl }} {{ product.volumeUnit || 'ml' }}
+          </td> -->
           <td class="col-hs">
             <span class="hs-badge">{{ product.hsCode }}</span>
           </td>
@@ -235,66 +235,52 @@
         <form class="product-form">
 
           <!-- ROW 1: Product Name + Volume/Unit -->
-        <div class="form-group autocomplete-group">
-  <label>Product Name *
-    <span class="hint">💡 Start typing to search DM products</span>
-  </label>
-  <div class="autocomplete-wrapper">
-    <input 
-      type="text" 
-      [(ngModel)]="currentProduct.name" 
-      name="name"
-      (input)="onProductNameInput($any($event.target).value)" 
-      (blur)="closeSuggestions()" 
-      class="form-input"
-      [class.warning-input]="productExistsWarning"
-      placeholder="Start typing: Balea..." 
-      required 
-    />
+          <div class="form-group autocomplete-group">
+            <label>Product Name *
+              <span class="hint">💡 Start typing to search DM products</span>
+            </label>
+            <div class="autocomplete-wrapper">
+              <input type="text" [(ngModel)]="currentProduct.name" name="name"
+                (input)="onProductNameInput($any($event.target).value)" (blur)="closeSuggestions()" class="form-input"
+                [class.warning-input]="productExistsWarning" placeholder="Start typing: Balea..." required />
 
-    <span *ngIf="isSearchingProducts" class="search-indicator">🔍</span>
-    <span *ngIf="isCheckingProduct" class="search-indicator">🔄</span>
+              <span *ngIf="isSearchingProducts" class="search-indicator">🔍</span>
+              <span *ngIf="isCheckingProduct" class="search-indicator">🔄</span>
 
-    <!-- Autocomplete dropdown -->
-    <div *ngIf="showSuggestions && productNameSuggestions.length > 0" class="autocomplete-dropdown">
-      <div *ngFor="let suggestion of productNameSuggestions" class="autocomplete-item"
-        (mousedown)="selectProductFromSuggestion(suggestion)">
-        <div class="suggestion-title">{{ suggestion.title }}</div>
-        <div class="suggestion-meta">
-          <span *ngIf="suggestion.gtin" class="meta-item">GTIN: {{ suggestion.gtin }}</span>
-          <span *ngIf="suggestion.countryOfOrigin?.abbr" class="meta-item">
-            {{ getCountryFlag(suggestion.countryOfOrigin?.abbr) }} {{ suggestion.countryOfOrigin?.abbr }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div *ngIf="productExistsWarning" class="validation-warning">
-    {{ productExistsWarning }}
-  </div>
-</div>
-    <div class="form-group">
-  <label>
-    French Name *
-    <span class="hint">🇫🇷 Nom du produit en français</span>
-  </label>
-  <input
-    type="text"
-    [(ngModel)]="currentProduct.frenchName"
-    name="frenchName"
-    class="form-input"
-    placeholder="Ex: Crème de nuit Balea..."
-    required
-  />
-</div>
+              <!-- Autocomplete dropdown -->
+              <div *ngIf="showSuggestions && productNameSuggestions.length > 0" class="autocomplete-dropdown">
+                <div *ngFor="let suggestion of productNameSuggestions" class="autocomplete-item"
+                  (mousedown)="selectProductFromSuggestion(suggestion)">
+                  <div class="suggestion-title">{{ suggestion.title }}</div>
+                  <div class="suggestion-meta">
+                    <span *ngIf="suggestion.gtin" class="meta-item">GTIN: {{ suggestion.gtin }}</span>
+                    <span *ngIf="suggestion.countryOfOrigin?.abbr" class="meta-item">
+                      {{ getCountryFlag(suggestion.countryOfOrigin?.abbr) }} {{ suggestion.countryOfOrigin?.abbr }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="productExistsWarning" class="validation-warning">
+              {{ productExistsWarning }}
+            </div>
+          </div>
+          <div class="form-group">
+            <label>
+              French Name *
+              <span class="hint">🇫🇷 Nom du produit en français</span>
+            </label>
+            <input type="text" [(ngModel)]="currentProduct.frenchName" name="frenchName" class="form-input"
+              placeholder="Ex: Crème de nuit Balea..." required />
+          </div>
           <!-- ROW 2: HS Code + HS Description -->
           <div class="form-row">
             <div class="form-group">
               <label>HS Code *
                 <span class="hint">📋 Select from available codes</span>
               </label>
-              <select [(ngModel)]="currentProduct.hsCode" name="hsCode"
-                (change)="onHsCodeChange(currentProduct.hsCode)" class="form-input" required>
+              <select [(ngModel)]="currentProduct.hsCode" name="hsCode" (change)="onHsCodeChange(currentProduct.hsCode)"
+                class="form-input" required>
                 <option value="">-- Select HS Code --</option>
 
                 <ng-container *ngFor="let group of getGroupedHsCodes() | keyvalue">
@@ -345,7 +331,7 @@
 
           <!-- ROW 3: Weights -->
           <div class="form-row">
-         <div class="form-group">
+            <div class="form-group">
               <label>Unit Brutto Weight (kg) *
                 <span class="hint">⚖️ Total weight including packaging</span>
               </label>
@@ -389,10 +375,10 @@
                 </button>
               </div>
               <small style="color: #666; margin-top: 8px; display: block;">
-               </small>
+              </small>
             </div>
           </div>
- 
+
           <!-- Quick calc buttons (outside form-row) -->
           <!-- <div *ngIf="currentProduct.volumeMl > 0 && currentProduct.volumeUnit !== 'St'" class="quick-calc-buttons">
             <button type="button" class="btn-calc" (click)="calculateNetto('liquid')"
@@ -412,134 +398,127 @@
           </div> -->
 
           <!-- ROW 4: GTIN + Country -->
-       <div class="form-group">
-  <label>GTIN
-    <span class="hint">✨ Auto-filled from DM</span>
-  </label>
-  <div class="input-with-validation">
-    <input 
-      type="text" 
-      [(ngModel)]="currentProduct.gtin" 
-      name="gtin" 
-      (input)="onGtinInput(currentProduct.gtin || '')"
-      class="form-input"
-      [class.error-input]="gtinError"
-      [class.auto-filled]="currentProduct.gtin && !gtinError"
-      placeholder="Auto-filled or enter manually" 
-    />
-    <span *ngIf="isCheckingGtin" class="validation-spinner">🔄</span>
-  </div>
-  <div *ngIf="gtinError" class="validation-error">
-    {{ gtinError }}
-  </div>
-</div>
-<div class="form-group">
-  <label>Country of Origin</label>
- <select [(ngModel)]="currentProduct.countryOfOrigin" name="countryOfOrigin" class="form-input">
-  
-  <!-- European Union -->
-  <optgroup label="🇪🇺 European Union">
-    <option value="AT">🇦🇹 AT - Austria</option>
-    <option value="BE">🇧🇪 BE - Belgium</option>
-    <option value="BG">🇧🇬 BG - Bulgaria</option>
-    <option value="CY">CY - Cyprus</option>
-    <option value="CZ">🇨🇿 CZ - Czech Republic</option>
-    <option value="DE">🇩🇪 DE - Germany</option>
-    <option value="DK">DK - Denmark</option>
-    <option value="EE">EE - Estonia</option>
-    <option value="ES">🇪🇸 ES - Spain</option>
-    <option value="FI">FI - Finland</option>
-    <option value="FR">🇫🇷 FR - France</option>
-    <option value="GR">GR - Greece</option>
-    <option value="HR">HR - Croatia</option>
-    <option value="HU">🇭🇺 HU - Hungary</option>
-    <option value="IE">IE - Ireland</option>
-    <option value="IT">🇮🇹 IT - Italy</option>
-    <option value="LT">LT - Lithuania</option>
-    <option value="LU">LU - Luxembourg</option>
-    <option value="LV">LV - Latvia</option>
-    <option value="MT">MT - Malta</option>
-    <option value="NL">🇳🇱 NL - Netherlands</option>
-    <option value="PL">🇵🇱 PL - Poland</option>
-    <option value="PT">PT - Portugal</option>
-    <option value="RO">🇷🇴 RO - Romania</option>
-    <option value="SE">SE - Sweden</option>
-    <option value="SI">SI - Slovenia</option>
-    <option value="SK">SK - Slovakia</option>
-  </optgroup>
+          <div class="form-group">
+            <label>GTIN
+              <span class="hint">✨ Auto-filled from DM</span>
+            </label>
+            <div class="input-with-validation">
+              <input type="text" [(ngModel)]="currentProduct.gtin" name="gtin"
+                (input)="onGtinInput(currentProduct.gtin || '')" class="form-input" [class.error-input]="gtinError"
+                [class.auto-filled]="currentProduct.gtin && !gtinError" placeholder="Auto-filled or enter manually" />
+              <span *ngIf="isCheckingGtin" class="validation-spinner">🔄</span>
+            </div>
+            <div *ngIf="gtinError" class="validation-error">
+              {{ gtinError }}
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Country of Origin</label>
+            <select [(ngModel)]="currentProduct.countryOfOrigin" name="countryOfOrigin" class="form-input">
 
-  <!-- Non-EU Europe -->
-  <optgroup label="🌍 Non-EU Europe">
-    <option value="AD">AD - Andorra</option>
-    <option value="AL">AL - Albania</option>
-    <option value="BA">BA - Bosnia-Herzegovina</option>
-    <option value="BY">BY - Belarus</option>
-    <option value="CH">🇨🇭 CH - Switzerland</option>
-    <option value="GB">🇬🇧 GB - United Kingdom</option>
-    <option value="IS">IS - Iceland</option>
-    <option value="LI">LI - Liechtenstein</option>
-    <option value="MC">MC - Monaco</option>
-    <option value="MD">MD - Moldova</option>
-    <option value="ME">ME - Montenegro</option>
-    <option value="MK">MK - North Macedonia</option>
-    <option value="NO">NO - Norway</option>
-    <option value="RS">RS - Serbia</option>
-    <option value="RU">RU - Russia</option>
-    <option value="SM">SM - San Marino</option>
-    <option value="TR">TR - Turkey</option>
-    <option value="UA">UA - Ukraine</option>
-    <option value="VA">VA - Vatican</option>
-    <option value="XK">XK - Kosovo</option>
-  </optgroup>
+              <!-- European Union -->
+              <optgroup label="🇪🇺 European Union">
+                <option value="AT">🇦🇹 AT - Austria</option>
+                <option value="BE">🇧🇪 BE - Belgium</option>
+                <option value="BG">🇧🇬 BG - Bulgaria</option>
+                <option value="CY">CY - Cyprus</option>
+                <option value="CZ">🇨🇿 CZ - Czech Republic</option>
+                <option value="DE">🇩🇪 DE - Germany</option>
+                <option value="DK">DK - Denmark</option>
+                <option value="EE">EE - Estonia</option>
+                <option value="ES">🇪🇸 ES - Spain</option>
+                <option value="FI">FI - Finland</option>
+                <option value="FR">🇫🇷 FR - France</option>
+                <option value="GR">GR - Greece</option>
+                <option value="HR">HR - Croatia</option>
+                <option value="HU">🇭🇺 HU - Hungary</option>
+                <option value="IE">IE - Ireland</option>
+                <option value="IT">🇮🇹 IT - Italy</option>
+                <option value="LT">LT - Lithuania</option>
+                <option value="LU">LU - Luxembourg</option>
+                <option value="LV">LV - Latvia</option>
+                <option value="MT">MT - Malta</option>
+                <option value="NL">🇳🇱 NL - Netherlands</option>
+                <option value="PL">🇵🇱 PL - Poland</option>
+                <option value="PT">PT - Portugal</option>
+                <option value="RO">🇷🇴 RO - Romania</option>
+                <option value="SE">SE - Sweden</option>
+                <option value="SI">SI - Slovenia</option>
+                <option value="SK">SK - Slovakia</option>
+              </optgroup>
 
-  <!-- Asia -->
-  <optgroup label="🌏 Asia">
-    <option value="BD">BD - Bangladesh</option>
-    <option value="CN">🇨🇳 CN - China</option>
-    <option value="ID">ID - Indonesia</option>
-    <option value="IN">IN - India</option>
-    <option value="JP">JP - Japan</option>
-    <option value="KR">KR - South Korea</option>
-    <option value="LK">LK - Sri Lanka</option>
-    <option value="MY">MY - Malaysia</option>
-    <option value="PH">PH - Philippines</option>
-    <option value="PK">PK - Pakistan</option>
-    <option value="SG">SG - Singapore</option>
-    <option value="TH">TH - Thailand</option>
-    <option value="VN">🇻🇳 VN - Vietnam</option>
-  </optgroup>
+              <!-- Non-EU Europe -->
+              <optgroup label="🌍 Non-EU Europe">
+                <option value="AD">AD - Andorra</option>
+                <option value="AL">AL - Albania</option>
+                <option value="BA">BA - Bosnia-Herzegovina</option>
+                <option value="BY">BY - Belarus</option>
+                <option value="CH">🇨🇭 CH - Switzerland</option>
+                <option value="GB">🇬🇧 GB - United Kingdom</option>
+                <option value="IS">IS - Iceland</option>
+                <option value="LI">LI - Liechtenstein</option>
+                <option value="MC">MC - Monaco</option>
+                <option value="MD">MD - Moldova</option>
+                <option value="ME">ME - Montenegro</option>
+                <option value="MK">MK - North Macedonia</option>
+                <option value="NO">NO - Norway</option>
+                <option value="RS">RS - Serbia</option>
+                <option value="RU">RU - Russia</option>
+                <option value="SM">SM - San Marino</option>
+                <option value="TR">TR - Turkey</option>
+                <option value="UA">UA - Ukraine</option>
+                <option value="VA">VA - Vatican</option>
+                <option value="XK">XK - Kosovo</option>
+              </optgroup>
 
-  <!-- Americas -->
-  <optgroup label="🌎 Americas">
-    <option value="AR">AR - Argentina</option>
-    <option value="BR">BR - Brazil</option>
-    <option value="CA">CA - Canada</option>
-    <option value="CL">CL - Chile</option>
-    <option value="CO">CO - Colombia</option>
-    <option value="MX">MX - Mexico</option>
-    <option value="PE">PE - Peru</option>
-    <option value="US">US - United States</option>
-  </optgroup>
+              <!-- Asia -->
+              <optgroup label="🌏 Asia">
+                <option value="BD">BD - Bangladesh</option>
+                <option value="CN">🇨🇳 CN - China</option>
+                <option value="ID">ID - Indonesia</option>
+                <option value="IN">IN - India</option>
+                <option value="JP">JP - Japan</option>
+                <option value="KR">KR - South Korea</option>
+                <option value="LK">LK - Sri Lanka</option>
+                <option value="MY">MY - Malaysia</option>
+                <option value="PH">PH - Philippines</option>
+                <option value="PK">PK - Pakistan</option>
+                <option value="SG">SG - Singapore</option>
+                <option value="TH">TH - Thailand</option>
+                <option value="VN">🇻🇳 VN - Vietnam</option>
+              </optgroup>
 
-  <!-- Africa -->
-  <optgroup label="🌍 Africa">
-    <option value="DZ">DZ - Algeria</option>
-    <option value="EG">EG - Egypt</option>
-    <option value="KE">KE - Kenya</option>
-    <option value="MA">MA - Morocco</option>
-    <option value="NG">NG - Nigeria</option>
-    <option value="TN">TN - Tunisia</option>
-    <option value="ZA">ZA - South Africa</option>
-  </optgroup>
+              <!-- Americas -->
+              <optgroup label="🌎 Americas">
+                <option value="AR">AR - Argentina</option>
+                <option value="BR">BR - Brazil</option>
+                <option value="CA">CA - Canada</option>
+                <option value="CL">CL - Chile</option>
+                <option value="CO">CO - Colombia</option>
+                <option value="MX">MX - Mexico</option>
+                <option value="PE">PE - Peru</option>
+                <option value="US">US - United States</option>
+              </optgroup>
 
-  <!-- Oceania -->
-  <optgroup label="🌊 Oceania">
-    <option value="AU">AU - Australia</option>
-    <option value="NZ">NZ - New Zealand</option>
-  </optgroup>
+              <!-- Africa -->
+              <optgroup label="🌍 Africa">
+                <option value="DZ">DZ - Algeria</option>
+                <option value="EG">EG - Egypt</option>
+                <option value="KE">KE - Kenya</option>
+                <option value="MA">MA - Morocco</option>
+                <option value="NG">NG - Nigeria</option>
+                <option value="TN">TN - Tunisia</option>
+                <option value="ZA">ZA - South Africa</option>
+              </optgroup>
 
-</select>
-</div>
+              <!-- Oceania -->
+              <optgroup label="🌊 Oceania">
+                <option value="AU">AU - Australia</option>
+                <option value="NZ">NZ - New Zealand</option>
+              </optgroup>
+
+            </select>
+          </div>
 
         </form>
       </div>

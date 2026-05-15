@@ -1,9 +1,7 @@
  <div class="app-container">
-  <app-sidebar></app-sidebar>
+  <app-sidebar *ngIf="auth.isLoggedIn"></app-sidebar>
   
   <main class="main-content">
- <!-- <app-pdf-editor></app-pdf-editor> -->
-
     <router-outlet></router-outlet>
   </main>
 </div>

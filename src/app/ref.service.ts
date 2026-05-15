@@ -3,12 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Reference } from './modals/Ref';
  import { Product } from './modals/Product';
+import { environment } from '../environments/environment';
 
 // import { Reference, Product, ReferenceProduct } from '../components/products-and-ref';
 
 @Injectable({ providedIn: 'root' })
 export class ReferenceService {
-  private API = 'http://192.168.1.81:3000/api/ref';
+  private API = `${environment.apiBaseUrl}/ref`;
 
   constructor(private http: HttpClient) {}
 

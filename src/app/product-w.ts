@@ -3,12 +3,13 @@ import { Injectable } from '@angular/core';
 import { Product } from './modals/Product';
 import { Observable } from 'rxjs';
 import { productG } from './modals/productsGenerated';
+import { environment } from '../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProductW {
-    private apiUrl = 'http://192.168.1.81:3000/api/weights/products'; 
+    private apiUrl = `${environment.apiBaseUrl}/weights/products`;
   constructor(private http: HttpClient) {}
 
  

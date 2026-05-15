@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../environments/environment';
 
 export interface PackImage {
   filename: string;
@@ -27,7 +28,7 @@ export interface PackCategory {
   providedIn: 'root'
 })
 export class PackService {
-  private apiUrl = 'http://192.168.1.81:3000/api/packs';
+  private apiUrl = `${environment.apiBaseUrl}/packs`;
 
   constructor(private http: HttpClient) {}
 
